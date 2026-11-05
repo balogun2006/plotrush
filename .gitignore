@@ -1,0 +1,27 @@
+# Local secrets; the example remains tracked.
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Future app dependencies and builds.
+node_modules/
+.next/
+out/
+dist/
+.vercel/
+.supabase/
+
+# Local validation/test artefacts.
+__pycache__/
+*.py[cod]
+.pytest_cache/
+coverage/
+playwright-report/
+test-results/
+*.log
+.DS_Store
+
+# Production content exports and backups do not belong in git.
+private-content/
+backups/
