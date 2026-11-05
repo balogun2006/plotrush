@@ -1,0 +1,946 @@
+{
+  "schemaVersion": "1.1",
+  "status": "draft_for_editorial_review",
+  "language": "en",
+  "allFictional": true,
+  "publicationRule": "Do not auto-publish on import. All seeds require approval and blind playtesting.",
+  "scoring": {
+    "suspectPoints": 60,
+    "reasonPoints": 40
+  },
+  "cases": [
+    {
+      "key": "last-slice",
+      "title": "The Last Slice",
+      "slug": "the-last-slice",
+      "synopsis": "A reserved cake slice disappears from the office fridge. Three colleagues tell different stories.",
+      "kind": "mini",
+      "access": "free",
+      "modes": [
+        "solo"
+      ],
+      "durationMinutes": 5,
+      "minPlayers": 1,
+      "maxPlayers": 1,
+      "briefing": "All people and events are fictional. At 15:00 the last boxed slice was missing. The fridge's only opening between 14:40 and 15:00 was at 14:47. Decide who took it and which record proves it.",
+      "suspects": [
+        {
+          "id": "ada",
+          "name": "Ada"
+        },
+        {
+          "id": "tunde",
+          "name": "Tunde"
+        },
+        {
+          "id": "sade",
+          "name": "Sade"
+        }
+      ],
+      "reasons": [
+        {
+          "id": "delivery",
+          "text": "A delivery took the slice away."
+        },
+        {
+          "id": "fridge-log",
+          "text": "The fridge opened during the only suspect's recorded kitchen visit."
+        },
+        {
+          "id": "late-arrival",
+          "text": "The person who discovered it must have taken it."
+        }
+      ],
+      "rounds": [
+        {
+          "number": 1,
+          "title": "Check the timing",
+          "clues": [
+            {
+              "id": "slice-01",
+              "title": "Reservation",
+              "type": "text",
+              "body": "A box labelled 'Reserved for the host' was photographed inside the fridge at 14:40.",
+              "round": 1,
+              "visibility": "assigned",
+              "asset": null,
+              "altText": null
+            },
+            {
+              "id": "slice-02",
+              "title": "Door sensor",
+              "type": "text",
+              "body": "The fridge door opened once between 14:40 and 15:00: 14:47\u201314:48. The sensor was tested and working.",
+              "round": 1,
+              "visibility": "assigned",
+              "asset": null,
+              "altText": null
+            },
+            {
+              "id": "slice-03",
+              "title": "Ada's call",
+              "type": "text",
+              "body": "Continuous meeting recording places Ada at the reception desk from 14:42 to 14:55. The kitchen is a separate room.",
+              "round": 1,
+              "visibility": "assigned",
+              "asset": null,
+              "altText": null
+            },
+            {
+              "id": "slice-04",
+              "title": "Tunde's visit",
+              "type": "text",
+              "body": "Kitchen entry camera records Tunde entering alone at 14:46 and leaving with the reserved box at 14:49.",
+              "round": 1,
+              "visibility": "assigned",
+              "asset": null,
+              "altText": null
+            },
+            {
+              "id": "slice-05",
+              "title": "Sade's arrival",
+              "type": "text",
+              "body": "Building access records and the entrance camera show Sade arrived from outside at 14:58. She entered the kitchen at 15:00.",
+              "round": 1,
+              "visibility": "assigned",
+              "asset": null,
+              "altText": null
+            },
+            {
+              "id": "slice-06",
+              "title": "Courier receipt",
+              "type": "text",
+              "body": "The courier left at 14:35. The cake box was still photographed in the fridge at 14:40.",
+              "round": 1,
+              "visibility": "assigned",
+              "asset": null,
+              "altText": null
+            }
+          ],
+          "hints": [
+            {
+              "id": "slice-h1",
+              "tier": 1,
+              "text": "Place each person's verified location next to the fridge opening."
+            },
+            {
+              "id": "slice-h2",
+              "tier": 2,
+              "text": "The opening at 14:47 overlaps Tunde's kitchen visit, and the camera shows the reserved box."
+            }
+          ]
+        }
+      ],
+      "answer": {
+        "suspectId": "tunde",
+        "reasonId": "fridge-log",
+        "decisiveClueIds": [
+          "slice-02",
+          "slice-04"
+        ],
+        "explanation": "Tunde removed the reserved box during the only recorded opening. The kitchen camera identifies both him and the box. Ada was continuously recorded elsewhere; Sade arrived later. The courier left before the box was last photographed.",
+        "eliminations": {
+          "ada": "Recorded at reception throughout the opening.",
+          "sade": "Arrived ten minutes after the fridge opened."
+        }
+      },
+      "discovery": {
+        "primaryTheme": "everyday-mystery",
+        "themes": [
+          "everyday-mystery"
+        ],
+        "moods": [
+          "lighthearted"
+        ],
+        "difficulty": "beginner",
+        "contentWarnings": [],
+        "warningsReviewStatus": "pending_editorial_review",
+        "estimatedDurationMinutes": {
+          "solo": 5
+        }
+      }
+    },
+    {
+      "key": "wrong-parcel",
+      "title": "The Wrong Parcel",
+      "slug": "the-wrong-parcel",
+      "synopsis": "A blue parcel vanishes from an estate reception. Follow the collection receipts.",
+      "kind": "mini",
+      "access": "free",
+      "modes": [
+        "solo"
+      ],
+      "durationMinutes": 5,
+      "minPlayers": 1,
+      "maxPlayers": 1,
+      "briefing": "Fictional estate, fictional residents. A parcel addressed to Flat 2 was mistakenly handed out. Determine who collected it and the decisive record. This is a mistaken collection, not proof of deliberate theft.",
+      "suspects": [
+        {
+          "id": "lola",
+          "name": "Lola"
+        },
+        {
+          "id": "emeka",
+          "name": "Emeka"
+        },
+        {
+          "id": "femi",
+          "name": "Femi"
+        }
+      ],
+      "reasons": [
+        {
+          "id": "blue-shirt",
+          "text": "The collector wore the same colour as the parcel."
+        },
+        {
+          "id": "serial-match",
+          "text": "The signed receipt matches the missing parcel's unique serial."
+        },
+        {
+          "id": "first-home",
+          "text": "The first resident to arrive must have taken it."
+        }
+      ],
+      "rounds": [
+        {
+          "number": 1,
+          "title": "Match the records",
+          "clues": [
+            {
+              "id": "parcel-01",
+              "title": "Sender record",
+              "type": "text",
+              "body": "The missing parcel for Flat 2 is blue with serial BX-204. The serial is unique.",
+              "round": 1,
+              "visibility": "assigned",
+              "asset": null,
+              "altText": null
+            },
+            {
+              "id": "parcel-02",
+              "title": "Lola's receipt",
+              "type": "text",
+              "body": "Lola signed for parcel BX-204 at 18:04. Reception verified her resident ID.",
+              "round": 1,
+              "visibility": "assigned",
+              "asset": null,
+              "altText": null
+            },
+            {
+              "id": "parcel-03",
+              "title": "Emeka's receipt",
+              "type": "text",
+              "body": "Emeka collected green parcel GN-811 for Flat 5 at 17:55.",
+              "round": 1,
+              "visibility": "assigned",
+              "asset": null,
+              "altText": null
+            },
+            {
+              "id": "parcel-04",
+              "title": "Femi's receipt",
+              "type": "text",
+              "body": "Femi collected brown parcel BR-917 for Flat 7 at 18:09.",
+              "round": 1,
+              "visibility": "assigned",
+              "asset": null,
+              "altText": null
+            },
+            {
+              "id": "parcel-05",
+              "title": "Reception photograph",
+              "type": "text",
+              "body": "At 18:00, blue parcel BX-204 remained on the reception shelf.",
+              "round": 1,
+              "visibility": "assigned",
+              "asset": null,
+              "altText": null
+            },
+            {
+              "id": "parcel-06",
+              "title": "Correction note",
+              "type": "text",
+              "body": "Reception found that BX-204 had been entered under Flat 3, Lola's flat. No other blue parcel was handed out.",
+              "round": 1,
+              "visibility": "assigned",
+              "asset": null,
+              "altText": null
+            }
+          ],
+          "hints": [
+            {
+              "id": "parcel-h1",
+              "tier": 1,
+              "text": "Colour alone is weak evidence. Look for the unique identifier."
+            },
+            {
+              "id": "parcel-h2",
+              "tier": 2,
+              "text": "BX-204 appears on the sender record and Lola's signed receipt."
+            }
+          ]
+        }
+      ],
+      "answer": {
+        "suspectId": "lola",
+        "reasonId": "serial-match",
+        "decisiveClueIds": [
+          "parcel-01",
+          "parcel-02"
+        ],
+        "explanation": "Lola's verified receipt is for BX-204, the missing parcel's unique serial. Reception's flat-number error explains the collection. Emeka and Femi collected different serials.",
+        "eliminations": {
+          "emeka": "Receipt is for GN-811.",
+          "femi": "Receipt is for BR-917."
+        }
+      },
+      "discovery": {
+        "primaryTheme": "everyday-mystery",
+        "themes": [
+          "everyday-mystery"
+        ],
+        "moods": [
+          "lighthearted"
+        ],
+        "difficulty": "beginner",
+        "contentWarnings": [],
+        "warningsReviewStatus": "pending_editorial_review",
+        "estimatedDurationMinutes": {
+          "solo": 5
+        }
+      }
+    },
+    {
+      "key": "playlist-switch",
+      "title": "The Playlist Switch",
+      "slug": "the-playlist-switch",
+      "synopsis": "The reunion's carefully prepared playlist has been replaced. Which account made the change?",
+      "kind": "mini",
+      "access": "free",
+      "modes": [
+        "solo"
+      ],
+      "durationMinutes": 6,
+      "minPlayers": 1,
+      "maxPlayers": 1,
+      "briefing": "This fictional puzzle concerns account actions. Each account is assigned to one named person; all three state they kept their own device and did not share credentials. The audit log is reliable. Identify the person who replaced the playlist.",
+      "suspects": [
+        {
+          "id": "nora",
+          "name": "Nora"
+        },
+        {
+          "id": "wale",
+          "name": "Wale"
+        },
+        {
+          "id": "zainab",
+          "name": "Zainab"
+        }
+      ],
+      "reasons": [
+        {
+          "id": "complaint",
+          "text": "Disliking the music proves responsibility."
+        },
+        {
+          "id": "audit",
+          "text": "The audit identifies the sole write action and its verified account owner."
+        },
+        {
+          "id": "near-speaker",
+          "text": "Being closest to a speaker gives editing access."
+        }
+      ],
+      "rounds": [
+        {
+          "number": 1,
+          "title": "Who could edit?",
+          "clues": [
+            {
+              "id": "music-01",
+              "title": "Account roster",
+              "type": "text",
+              "body": "Owner account A1 belongs to Zainab. Guest account A2 belongs to Nora. Guest account A3 belongs to Wale.",
+              "round": 1,
+              "visibility": "assigned",
+              "asset": null,
+              "altText": null
+            },
+            {
+              "id": "music-02",
+              "title": "Permissions",
+              "type": "text",
+              "body": "Only A1 can replace playlists. A2 and A3 can suggest tracks but cannot write.",
+              "round": 1,
+              "visibility": "assigned",
+              "asset": null,
+              "altText": null
+            },
+            {
+              "id": "music-03",
+              "title": "Audit record",
+              "type": "text",
+              "body": "20:14 \u2014 action REPLACE_PLAYLIST \u2014 actor A1 \u2014 verified sign-in. This is the only replace action.",
+              "round": 1,
+              "visibility": "assigned",
+              "asset": null,
+              "altText": null
+            },
+            {
+              "id": "music-04",
+              "title": "Nora's complaint",
+              "type": "text",
+              "body": "At 20:10 Nora said, 'These songs are too slow.' Her account remained A2.",
+              "round": 1,
+              "visibility": "assigned",
+              "asset": null,
+              "altText": null
+            },
+            {
+              "id": "music-05",
+              "title": "Wale's location",
+              "type": "text",
+              "body": "A photo shows Wale beside the speaker at 20:14. The speaker is output-only and has no playlist controls.",
+              "round": 1,
+              "visibility": "assigned",
+              "asset": null,
+              "altText": null
+            },
+            {
+              "id": "music-06",
+              "title": "Device statements",
+              "type": "text",
+              "body": "All three confirm they retained their own devices, used their own accounts and shared no passwords that evening.",
+              "round": 1,
+              "visibility": "assigned",
+              "asset": null,
+              "altText": null
+            }
+          ],
+          "hints": [
+            {
+              "id": "music-h1",
+              "tier": 1,
+              "text": "Separate motive from the ability and record of making the change."
+            },
+            {
+              "id": "music-h2",
+              "tier": 2,
+              "text": "A1 made the only replacement. The account roster names its owner."
+            }
+          ]
+        }
+      ],
+      "answer": {
+        "suspectId": "zainab",
+        "reasonId": "audit",
+        "decisiveClueIds": [
+          "music-01",
+          "music-03",
+          "music-06"
+        ],
+        "explanation": "The only replacement is attributed to A1, Zainab's verified and unshared account. Nora's complaint is not an editing action, and the speaker beside Wale has no controls.",
+        "eliminations": {
+          "nora": "A2 cannot replace playlists.",
+          "wale": "A3 cannot replace playlists; physical speaker position does not grant access."
+        }
+      },
+      "discovery": {
+        "primaryTheme": "everyday-mystery",
+        "themes": [
+          "everyday-mystery"
+        ],
+        "moods": [
+          "lighthearted"
+        ],
+        "difficulty": "beginner",
+        "contentWarnings": [],
+        "warningsReviewStatus": "pending_editorial_review",
+        "estimatedDurationMinutes": {
+          "solo": 6
+        }
+      }
+    },
+    {
+      "key": "missing-mic",
+      "title": "The Missing Microphone",
+      "slug": "the-missing-microphone",
+      "synopsis": "Before the speeches, a microphone disappears. Solve a short case with friends.",
+      "kind": "tutorial",
+      "access": "free",
+      "modes": [
+        "group"
+      ],
+      "durationMinutes": 8,
+      "minPlayers": 2,
+      "maxPlayers": 6,
+      "briefing": "A fictional wedding rehearsal is missing microphone M7 at 17:10. Find who moved it, not who stole it: everyone had permission to tidy equipment. Each detective has part of the record. Share clues to identify its location.",
+      "suspects": [
+        {
+          "id": "bisi",
+          "name": "Bisi"
+        },
+        {
+          "id": "kunle",
+          "name": "Kunle"
+        },
+        {
+          "id": "tomi",
+          "name": "Tomi"
+        }
+      ],
+      "reasons": [
+        {
+          "id": "serial-photo",
+          "text": "A timestamped photo shows the same unique microphone and its mover."
+        },
+        {
+          "id": "loudest",
+          "text": "The loudest person probably needed it."
+        },
+        {
+          "id": "van",
+          "text": "Any person with a van must have packed it."
+        }
+      ],
+      "rounds": [
+        {
+          "number": 1,
+          "title": "Share what you know",
+          "clues": [
+            {
+              "id": "mic-01",
+              "title": "Equipment list",
+              "type": "text",
+              "body": "The missing microphone has a unique label M7 on its handle. M8 is a spare and is not missing.",
+              "round": 1,
+              "visibility": "assigned",
+              "asset": null,
+              "altText": null
+            },
+            {
+              "id": "mic-02",
+              "title": "Bisi's photo",
+              "type": "text",
+              "body": "At 17:06 Bisi photographed herself holding microphone M8 beside the stage. Its label is legible.",
+              "round": 1,
+              "visibility": "assigned",
+              "asset": null,
+              "altText": null
+            },
+            {
+              "id": "mic-03",
+              "title": "Packing photo",
+              "type": "text",
+              "body": "A continuous camera clip at 17:08 shows Kunle placing microphone M7 into the red equipment case. Both label and face are clear.",
+              "round": 1,
+              "visibility": "assigned",
+              "asset": null,
+              "altText": null
+            },
+            {
+              "id": "mic-04",
+              "title": "Tomi's checklist",
+              "type": "text",
+              "body": "At 17:04 Tomi signed out only a speaker cable. A camera records her leaving empty-handed except for the cable.",
+              "round": 1,
+              "visibility": "assigned",
+              "asset": null,
+              "altText": null
+            },
+            {
+              "id": "mic-05",
+              "title": "Case location",
+              "type": "text",
+              "body": "The red equipment case is on the rehearsal room shelf. At 17:12 it is opened: microphone M7 is inside.",
+              "round": 1,
+              "visibility": "assigned",
+              "asset": null,
+              "altText": null
+            },
+            {
+              "id": "mic-06",
+              "title": "Tidying instruction",
+              "type": "text",
+              "body": "At 17:00 the coordinator asked everyone to pack unused equipment. Nobody was instructed to remove equipment from the venue.",
+              "round": 1,
+              "visibility": "assigned",
+              "asset": null,
+              "altText": null
+            }
+          ],
+          "hints": [
+            {
+              "id": "mic-h1",
+              "tier": 1,
+              "text": "Combine the equipment label with a record of movement."
+            },
+            {
+              "id": "mic-h2",
+              "tier": 2,
+              "text": "M7 appears in the packing clip and inside the red case."
+            }
+          ]
+        }
+      ],
+      "answer": {
+        "suspectId": "kunle",
+        "reasonId": "serial-photo",
+        "decisiveClueIds": [
+          "mic-03",
+          "mic-05"
+        ],
+        "explanation": "Kunle packed M7 into the red case while tidying. The clip identifies him and the unique microphone; opening the case confirms the location. No theft is established.",
+        "eliminations": {
+          "bisi": "Her photo shows spare M8, not M7.",
+          "tomi": "Her record concerns a cable, and the movement clip identifies Kunle."
+        }
+      },
+      "discovery": {
+        "primaryTheme": "wedding-family",
+        "themes": [
+          "wedding-family"
+        ],
+        "moods": [
+          "lighthearted"
+        ],
+        "difficulty": "beginner",
+        "contentWarnings": [],
+        "warningsReviewStatus": "pending_editorial_review",
+        "estimatedDurationMinutes": {
+          "group": 8
+        }
+      }
+    },
+    {
+      "key": "wedding-gift",
+      "title": "The Missing Wedding Gift",
+      "slug": "the-missing-wedding-gift",
+      "synopsis": "A sealed wedding gift has vanished. Six detectives, conflicting accounts and one demand nobody expected.",
+      "kind": "premium",
+      "access": "paid",
+      "modes": [
+        "solo",
+        "group"
+      ],
+      "durationMinutes": 25,
+      "minPlayers": 4,
+      "maxPlayers": 6,
+      "briefing": "All characters and records are fictional. At 19:20 a sealed silver gift box is missing from the wedding's gift room. Only Dami, Tomi, Bisi and Kunle had permission to enter the service corridor. The venue confirms its camera, clock and door logs are accurate. No outside person entered the gift room or service corridor from 19:10 to 19:20. Determine who deliberately removed the box and why. You are detectives, not suspects; player names do not change the story.",
+      "suspects": [
+        {
+          "id": "dami",
+          "name": "Dami",
+          "role": "Transport coordinator"
+        },
+        {
+          "id": "tomi",
+          "name": "Tomi",
+          "role": "Wedding planner"
+        },
+        {
+          "id": "bisi",
+          "name": "Bisi",
+          "role": "Catering supervisor"
+        },
+        {
+          "id": "kunle",
+          "name": "Kunle",
+          "role": "Photographer"
+        }
+      ],
+      "reasons": [
+        {
+          "id": "safe-storage",
+          "text": "Moved it into the venue safe with the couple's permission."
+        },
+        {
+          "id": "fee-demand",
+          "text": "Withheld it in the van to force payment of an invented handling fee."
+        },
+        {
+          "id": "wrong-delivery",
+          "text": "Accidentally delivered it to another wedding."
+        },
+        {
+          "id": "camera-prop",
+          "text": "Borrowed it as a prop for the official photographs."
+        }
+      ],
+      "rounds": [
+        {
+          "number": 1,
+          "title": "The gift disappears",
+          "clues": [
+            {
+              "id": "gift-01",
+              "title": "Gift register",
+              "type": "text",
+              "body": "At 19:10 the sealed silver box SG-17 was logged on the gift-room table. A photograph clearly shows its unique serial SG-17.",
+              "round": 1,
+              "visibility": "assigned",
+              "asset": null,
+              "altText": null
+            },
+            {
+              "id": "gift-02",
+              "title": "Dami's statement",
+              "type": "text",
+              "body": "Dami says: 'I signed for a table delivery at 19:12, then left the service corridor. I did not move any gifts.'",
+              "round": 1,
+              "visibility": "assigned",
+              "asset": null,
+              "altText": null
+            },
+            {
+              "id": "gift-03",
+              "title": "Tomi's statement",
+              "type": "text",
+              "body": "Tomi says: 'I was on stage with the couple from 19:13 until 19:19. I told nobody to move the box.'",
+              "round": 1,
+              "visibility": "assigned",
+              "asset": null,
+              "altText": null
+            },
+            {
+              "id": "gift-04",
+              "title": "Bisi's statement",
+              "type": "text",
+              "body": "Bisi says: 'I was at the kitchen pass from 19:13 to 19:19, checking every plate with the head chef.'",
+              "round": 1,
+              "visibility": "assigned",
+              "asset": null,
+              "altText": null
+            },
+            {
+              "id": "gift-05",
+              "title": "Kunle's statement",
+              "type": "text",
+              "body": "Kunle says: 'I was in the portrait booth from 19:13 to 19:19. My camera was tethered there.'",
+              "round": 1,
+              "visibility": "assigned",
+              "asset": null,
+              "altText": null
+            },
+            {
+              "id": "gift-06",
+              "title": "Door record",
+              "type": "text",
+              "body": "The gift-room door opened once after the 19:10 register and before discovery: 19:16\u201319:17. No alternative entrance exists; the door log is complete.",
+              "round": 1,
+              "visibility": "assigned",
+              "asset": null,
+              "altText": null
+            }
+          ],
+          "hints": [
+            {
+              "id": "gift-r1-h1",
+              "tier": 1,
+              "text": "The movement must fit the 19:16\u201319:17 door opening."
+            },
+            {
+              "id": "gift-r1-h2",
+              "tier": 2,
+              "text": "Three people claim continuous locations over that opening. Check their claims against independent records."
+            }
+          ]
+        },
+        {
+          "number": 2,
+          "title": "Rebuild the minute",
+          "clues": [
+            {
+              "id": "gift-07",
+              "title": "Stage recording",
+              "type": "text",
+              "body": "An uninterrupted wide video shows Tomi beside the couple on stage from 19:13 to 19:19. The service corridor is elsewhere.",
+              "round": 2,
+              "visibility": "assigned",
+              "asset": null,
+              "altText": null
+            },
+            {
+              "id": "gift-08",
+              "title": "Kitchen recording",
+              "type": "text",
+              "body": "A fixed camera and chef's signed log place Bisi continuously at the kitchen pass from 19:13 to 19:19.",
+              "round": 2,
+              "visibility": "assigned",
+              "asset": null,
+              "altText": null
+            },
+            {
+              "id": "gift-09",
+              "title": "Portrait recording",
+              "type": "text",
+              "body": "The booth's continuous video shows Kunle operating his tethered camera from 19:13 to 19:19. The portrait booth has no corridor access.",
+              "round": 2,
+              "visibility": "assigned",
+              "asset": null,
+              "altText": null
+            },
+            {
+              "id": "gift-10",
+              "title": "Corridor camera",
+              "type": "text",
+              "body": "At 19:17 a person in transport vest T4 carries a sealed silver box from the gift room towards the van bay. The face and box serial are obscured.",
+              "round": 2,
+              "visibility": "assigned",
+              "asset": null,
+              "altText": null
+            },
+            {
+              "id": "gift-11",
+              "title": "Vest checkout",
+              "type": "text",
+              "body": "Vest T4 was issued to Dami at 18:40. Dami confirms he wore it continuously until 19:30 and lent it to nobody. The checkout clerk recorded no replacement.",
+              "round": 2,
+              "visibility": "assigned",
+              "asset": null,
+              "altText": null
+            },
+            {
+              "id": "gift-12",
+              "title": "Dispatch note",
+              "type": "text",
+              "body": "At 19:18 Dami sends from his verified work account: 'Still at van bay. Holding the silver box. Do not send the van out.'",
+              "round": 2,
+              "visibility": "assigned",
+              "asset": null,
+              "altText": null
+            }
+          ],
+          "hints": [
+            {
+              "id": "gift-r2-h1",
+              "tier": 1,
+              "text": "The movement record and independent alibis are stronger than a suspect's unsupported denial."
+            },
+            {
+              "id": "gift-r2-h2",
+              "tier": 2,
+              "text": "Dami's continuous use of T4 and his dispatch message contradict his denial. The last round establishes which box and why."
+            }
+          ]
+        },
+        {
+          "number": 3,
+          "title": "Follow the demand",
+          "clues": [
+            {
+              "id": "gift-13",
+              "title": "Van inspection",
+              "type": "text",
+              "body": "At 19:22 the venue manager opens the stationary van with Dami present and photographs silver box SG-17 inside. Its seal is intact; the serial matches the gift register.",
+              "round": 3,
+              "visibility": "assigned",
+              "asset": null,
+              "altText": null
+            },
+            {
+              "id": "gift-14",
+              "title": "Handling-fee message",
+              "type": "text",
+              "body": "At 19:19 Dami's verified, unshared work account messages the couple: 'Pay me \u20a640,000 handling before I release SG-17 from the van. It stays here until you pay.' Dami confirms the account and message are his.",
+              "round": 3,
+              "visibility": "assigned",
+              "asset": null,
+              "altText": null
+            },
+            {
+              "id": "gift-15",
+              "title": "Transport contract",
+              "type": "text",
+              "body": "The signed transport invoice is fully paid. It expressly includes gift handling and contains no additional handling fee. Dami signed acknowledgement of full payment at 18:50.",
+              "round": 3,
+              "visibility": "assigned",
+              "asset": null,
+              "altText": null
+            },
+            {
+              "id": "gift-16",
+              "title": "Safe record",
+              "type": "text",
+              "body": "The venue safe log is complete: it was not opened between 19:00 and 19:30. The couple gave no approval to transfer SG-17 into a safe or van.",
+              "round": 3,
+              "visibility": "assigned",
+              "asset": null,
+              "altText": null
+            },
+            {
+              "id": "gift-17",
+              "title": "Photograph brief",
+              "type": "text",
+              "body": "The couple and Kunle's approved brief says all gifts remain sealed in the gift room. No gift-box prop was requested or used in the portrait booth.",
+              "round": 3,
+              "visibility": "assigned",
+              "asset": null,
+              "altText": null
+            },
+            {
+              "id": "gift-18",
+              "title": "Van departure record",
+              "type": "text",
+              "body": "The van remained parked from 18:55 to 19:30. No other wedding was using this van. The key remained with Dami, who opened it at the manager's request.",
+              "round": 3,
+              "visibility": "assigned",
+              "asset": null,
+              "altText": null
+            }
+          ],
+          "hints": [
+            {
+              "id": "gift-r3-h1",
+              "tier": 1,
+              "text": "Identify the box, then distinguish an authorised move or mistake from the stated demand."
+            },
+            {
+              "id": "gift-r3-h2",
+              "tier": 2,
+              "text": "SG-17 is in the van. Dami demands an extra fee, while the signed contract shows handling was already paid."
+            }
+          ]
+        }
+      ],
+      "answer": {
+        "suspectId": "dami",
+        "reasonId": "fee-demand",
+        "decisiveClueIds": [
+          "gift-06",
+          "gift-10",
+          "gift-11",
+          "gift-12",
+          "gift-13",
+          "gift-14",
+          "gift-15"
+        ],
+        "explanation": "Dami deliberately moved SG-17 to the van during the 19:16\u201319:17 opening and withheld it to demand an invented fee. The corridor clip identifies his continuously worn vest; his dispatch note admits holding a silver box. The manager confirms SG-17 in the van, and Dami's acknowledged message states the demand. Handling was already included and paid. The gift was recovered sealed; the evidence establishes the fictional puzzle's act and motive, not a real-world criminal conviction.",
+        "eliminations": {
+          "tomi": "Continuous stage video covers the only gift-room opening.",
+          "bisi": "Continuous kitchen recording covers the opening.",
+          "kunle": "Continuous booth recording covers the opening; no gift prop was authorised."
+        }
+      },
+      "discovery": {
+        "primaryTheme": "wedding-family",
+        "themes": [
+          "wedding-family"
+        ],
+        "moods": [
+          "suspenseful"
+        ],
+        "difficulty": "intermediate",
+        "contentWarnings": [],
+        "warningsReviewStatus": "pending_editorial_review",
+        "estimatedDurationMinutes": {
+          "solo": 20,
+          "group": 25
+        }
+      }
+    }
+  ],
+  "taxonomyVersion": "1.0"
+}

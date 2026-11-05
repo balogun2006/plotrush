@@ -1,0 +1,125 @@
+{
+  "schemaVersion": "1.0",
+  "taxonomyVersion": "1.0",
+  "themes": [
+    {
+      "id": "thriller",
+      "slug": "thriller",
+      "label": "Thriller",
+      "description": "Suspense-led investigations with meaningful stakes.",
+      "status": "enabled",
+      "displayOrder": 1,
+      "promoteOnHomeWhenCoverageReady": true,
+      "imageAsset": null
+    },
+    {
+      "id": "cold-case",
+      "slug": "cold-case",
+      "label": "Cold Case",
+      "description": "Older unresolved cases reopened through records and new evidence.",
+      "status": "enabled",
+      "displayOrder": 2,
+      "promoteOnHomeWhenCoverageReady": true,
+      "imageAsset": null
+    },
+    {
+      "id": "wedding-family",
+      "slug": "wedding-family",
+      "label": "Wedding & Family",
+      "description": "Mysteries around celebrations, relationships and family gatherings.",
+      "status": "enabled",
+      "displayOrder": 3,
+      "promoteOnHomeWhenCoverageReady": true,
+      "imageAsset": null
+    },
+    {
+      "id": "heist",
+      "slug": "heist",
+      "label": "Heist",
+      "description": "Investigations of planned thefts and their execution.",
+      "status": "enabled",
+      "displayOrder": 4,
+      "promoteOnHomeWhenCoverageReady": false,
+      "imageAsset": null
+    },
+    {
+      "id": "supernatural",
+      "slug": "supernatural",
+      "label": "Supernatural",
+      "description": "Cases involving apparent paranormal events; resolution scope is disclosed.",
+      "status": "enabled",
+      "displayOrder": 5,
+      "promoteOnHomeWhenCoverageReady": false,
+      "imageAsset": null
+    },
+    {
+      "id": "everyday-mystery",
+      "slug": "everyday-mystery",
+      "label": "Everyday Mystery",
+      "description": "Smaller contemporary puzzles from ordinary settings.",
+      "status": "enabled",
+      "displayOrder": 6,
+      "promoteOnHomeWhenCoverageReady": false,
+      "imageAsset": null
+    }
+  ],
+  "moods": [
+    {
+      "id": "lighthearted",
+      "slug": "lighthearted",
+      "label": "Lighthearted",
+      "status": "enabled"
+    },
+    {
+      "id": "suspenseful",
+      "slug": "suspenseful",
+      "label": "Suspenseful",
+      "status": "enabled"
+    },
+    {
+      "id": "dark",
+      "slug": "dark",
+      "label": "Dark",
+      "status": "enabled"
+    }
+  ],
+  "difficulties": [
+    {
+      "id": "beginner",
+      "label": "Beginner",
+      "order": 1
+    },
+    {
+      "id": "intermediate",
+      "label": "Intermediate",
+      "order": 2
+    },
+    {
+      "id": "expert",
+      "label": "Expert",
+      "order": 3
+    }
+  ],
+  "durationBuckets": [
+    {
+      "id": "lt10",
+      "minInclusive": 1,
+      "maxInclusive": 9
+    },
+    {
+      "id": "10to19",
+      "minInclusive": 10,
+      "maxInclusive": 19
+    },
+    {
+      "id": "20to30",
+      "minInclusive": 20,
+      "maxInclusive": 30
+    },
+    {
+      "id": "gt30",
+      "minInclusive": 31,
+      "maxInclusive": null
+    }
+  ]
+}
