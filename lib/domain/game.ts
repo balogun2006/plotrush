@@ -2,11 +2,12 @@ import { randomUUID } from "node:crypto";
 import { Database, Sql } from "../db/types";
 import { Case, caseSchema, card } from "./content";
 import { assert } from "./errors";
+import { lockPrincipal } from "./identity";
 type Attempt = {
   id: string;
   principal_id: string;
   case_version_id: string;
-  state: "investigating" | "revealed";
+  state: "investigating" | "revealed" | "abandoned";
   round: number;
   state_version: number;
   notes: string;
@@ -31,6 +32,7 @@ export async function catalogue(db: Sql) {
 }
 export async function start(db: Database, actor: string, key: string) {
   return db.transaction(async (tx) => {
+    await lockPrincipal(tx, actor);
     // Lock the actor so duplicate starts serialize even before the attempt row exists.
     await tx.query(
       "SELECT id FROM app_private.principals WHERE id=$1 FOR UPDATE",
@@ -109,7 +111,10 @@ function snapshot(a: Attempt, c: Case = caseSchema.parse(a.content)) {
 }
 export type Snapshot = ReturnType<typeof snapshot>;
 export async function read(db: Database, actor: string, id: string) {
-  return db.transaction(async (tx) => snapshot(await owned(tx, actor, id)));
+  return db.transaction(async (tx) => {
+    await lockPrincipal(tx, actor);
+    return snapshot(await owned(tx, actor, id));
+  });
 }
 export async function mutate(
   db: Database,
@@ -125,6 +130,7 @@ export async function mutate(
   },
 ) {
   return db.transaction(async (tx) => {
+    await lockPrincipal(tx, actor);
     const a = await owned(tx, actor, id),
       c = caseSchema.parse(a.content);
     if (action === "accusation" && a.result) return snapshot(a, c); // Immutable result on retried submission.
