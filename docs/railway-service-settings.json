@@ -1,0 +1,14 @@
+{
+  "projectId": "1ae349d0-6e8e-4ab9-abee-55868832513b",
+  "environmentId": "8ae34e43-3aea-4c31-be65-aa09089d9335",
+  "serviceId": "bef0eb3f-0e3c-40bd-8d5b-c6b2c7c27746",
+  "buildCommand": "pnpm build",
+  "preDeployCommand": [
+    "pnpm db:migrate"
+  ],
+  "startCommand": "pnpm start",
+  "healthcheckPath": "/api/health",
+  "healthcheckTimeout": 120,
+  "restartPolicyType": "ON_FAILURE",
+  "restartPolicyMaxRetries": 3
+}
