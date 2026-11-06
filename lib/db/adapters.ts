@@ -3,7 +3,7 @@ export async function postgres(url: string): Promise<Database> {
   const { Pool } = await import("pg");
   const pool = new Pool({
     connectionString: url,
-    max: 8,
+    max: process.env.APP_MODE === "test" ? 1 : 8,
     connectionTimeoutMillis: 10000,
     idleTimeoutMillis: 30000,
   });
