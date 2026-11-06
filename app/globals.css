@@ -2418,3 +2418,199 @@ footer > a:last-child {
     transform: none;
   }
 }
+
+/* Shared investigations */
+.group-page {
+  max-width: 1200px;
+  margin: auto;
+  padding: 48px 24px 80px;
+}
+.group-page h1 {
+  font-size: clamp(2rem, 4vw, 3.5rem);
+  line-height: 1.1;
+  margin: 12px 0;
+}
+.room-entry {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin: 32px 0;
+}
+.room-panel {
+  background: #fffdf8;
+  border: 1px solid #e5e0ed;
+  border-radius: 20px;
+  padding: 28px;
+  margin-bottom: 22px;
+}
+.room-panel p {
+  line-height: 1.7;
+  color: #655d75;
+}
+.room-panel h2 {
+  font-size: 1.4rem;
+  margin: 10px 0 16px;
+}
+.room-panel label:not(.room-option) {
+  display: block;
+  margin: 18px 0 8px;
+}
+.room-panel input:not([type="radio"]) {
+  width: 100%;
+  padding: 14px;
+  border: 1px solid #cbc3d7;
+  border-radius: 10px;
+  background: white;
+  font: inherit;
+  color: #291747;
+}
+.room-layout {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+.room-status {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin: 28px 0;
+  color: #655d75;
+}
+.room-roster {
+  list-style: none;
+  padding: 0;
+}
+.room-roster li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 18px 0;
+  overflow-wrap: anywhere;
+}
+.room-roster small {
+  display: block;
+  color: #756886;
+  margin-top: 3px;
+}
+.room-avatar {
+  background: #ede6f5;
+  color: #5e3c88;
+  min-width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-weight: 700;
+}
+.room-clues {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 245px), 1fr));
+}
+.room-clue {
+  padding: 22px;
+  background: #f4f0f8;
+  border: 1px solid #e5ddef;
+  border-radius: 12px;
+}
+.room-clue h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+.room-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.room-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid #e4dced;
+  border-radius: 10px;
+  margin: 10px 0;
+  cursor: pointer;
+  line-height: 1.5;
+}
+.room-option input {
+  margin-top: 5px;
+  accent-color: #6741a5;
+}
+.room-panel fieldset {
+  border: 0;
+  padding: 0;
+  margin: 24px 0;
+}
+.room-panel legend {
+  font-weight: 700;
+}
+.room-message {
+  padding: 16px 22px;
+  background: #eee5fb;
+  border-radius: 12px;
+  margin: 16px 0;
+  color: #46286a;
+}
+.invite-code {
+  letter-spacing: 2px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.text-button {
+  background: none;
+  border: 0;
+  padding: 8px 0;
+  text-decoration: underline;
+  color: #684695;
+  font: inherit;
+  cursor: pointer;
+}
+.room-score {
+  font-size: 4rem;
+  font-weight: 800;
+  color: #5e378b;
+}
+.room-score small {
+  font-size: 1.4rem;
+  color: #83758f;
+}
+.room-fineprint {
+  color: #756886;
+  font-size: 0.9rem;
+}
+.room-panel .eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+@media (max-width: 760px) {
+  .room-layout,
+  .room-entry {
+    grid-template-columns: 1fr;
+  }
+  .group-page {
+    padding: 30px 16px;
+  }
+  .room-panel {
+    padding: 22px;
+  }
+  .room-roster {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .room-roster li {
+    margin: 6px 0;
+  }
+  .room-actions .button {
+    width: 100%;
+    justify-content: center;
+  }
+}
