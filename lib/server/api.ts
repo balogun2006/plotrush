@@ -90,7 +90,9 @@ export async function handle(req: NextRequest, path: string[]) {
     if (req.method === "GET" && route === "cases") {
       const f = parseFilters(req.nextUrl.searchParams);
       const all = (await catalogue(db)).filter(
-        (c) => c.access === "free" && c.modes.includes("solo"),
+        (c) =>
+          c.access === "free" &&
+          (c.modes.includes("solo") || c.kind === "tutorial"),
       );
       return json({
         cases: filterCases(all, f),
@@ -101,7 +103,9 @@ export async function handle(req: NextRequest, path: string[]) {
     }
     if (req.method === "GET" && route === "taxonomy") {
       const all = (await catalogue(db)).filter(
-        (c) => c.access === "free" && c.modes.includes("solo"),
+        (c) =>
+          c.access === "free" &&
+          (c.modes.includes("solo") || c.kind === "tutorial"),
       );
       return json({
         themes: themes.map((id) => ({
