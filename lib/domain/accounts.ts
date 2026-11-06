@@ -207,10 +207,9 @@ async function merge(tx: Sql, source: string, target: string) {
     "UPDATE app_private.principals SET merged_into=$2 WHERE id=$1",
     [source, target],
   );
-  await tx.query(
-    "DELETE FROM app_private.sessions WHERE principal_id IN ($1,$2)",
-    [source, target],
-  );
+  await tx.query("DELETE FROM app_private.sessions WHERE principal_id=$1", [
+    source,
+  ]);
   await tx.query(
     "UPDATE app_private.auth_challenges SET used_at=now() WHERE principal_id=$1 AND used_at IS NULL",
     [source],
