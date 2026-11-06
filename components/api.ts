@@ -2,6 +2,7 @@ export class ApiError extends Error {
   constructor(
     message: string,
     public status: number,
+    public code?: string,
   ) {
     super(message);
   }
@@ -22,6 +23,7 @@ export async function api<T>(
     throw new ApiError(
       value.error?.message ?? "Something went wrong.",
       r.status,
+      value.error?.code,
     );
   return value.data;
 }

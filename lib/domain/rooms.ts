@@ -3,7 +3,7 @@ import { z } from "zod";
 import { Database, Sql } from "../db/types";
 import { Case, caseSchema } from "./content";
 import { assert } from "./errors";
-import { hash } from "./identity";
+import { hash, lockPrincipal } from "./identity";
 
 export const displayName = z
   .string()
@@ -243,6 +243,7 @@ export async function createRoom(
 ) {
   name = displayName.parse(name);
   return db.transaction(async (tx) => {
+    await lockPrincipal(tx, actor);
     const v = (
       await tx.query<{ id: string; content: Case }>(
         "SELECT id,content FROM app_private.case_versions WHERE case_key=$1 ORDER BY created_at DESC,id LIMIT 1",
@@ -293,6 +294,7 @@ export async function joinRoom(
   code = inviteCode.parse(code);
   name = displayName.parse(name);
   return db.transaction(async (tx) => {
+    await lockPrincipal(tx, actor);
     const found = (
       await tx.query<{ id: string }>(
         "SELECT id FROM app_private.rooms WHERE invite_hash=$1",
@@ -359,6 +361,7 @@ export async function roomAction(
 ) {
   return db
     .transaction(async (tx) => {
+      await lockPrincipal(tx, actor);
       const r = await lock(tx, id),
         ms = await members(tx, id),
         me = ms.find((m) => m.principal_id === actor && !m.departed);

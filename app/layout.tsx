@@ -30,6 +30,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <Compass size={17} /> Explore
             </Link>
             <Link href="/rooms">Play together</Link>
+            <Link href="/account">Account</Link>
             <Link href="/library">
               <Bookmark size={17} /> My cases
             </Link>
@@ -52,6 +53,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <p>Every clue changes everything.</p>
           <span>Made for curious minds. All stories are fictional.</span>
           <Link href="/interests">Your interests</Link>
+          <Link href="/shop">Premium cases</Link>
         </footer>
       </body>
     </html>

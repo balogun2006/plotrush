@@ -88,3 +88,9 @@ E2E tests serve the compiled production build against a disposable PGlite TCP se
 ## Free group tutorial
 
 Open `/rooms` to create or join The Missing Microphone. Use separate browser profiles/devices for different players; tabs in the same browser share a seat. Everyone readies up, the host starts, players share private evidence and vote for a joint reveal. Keep your browser session to reconnect. [ADR002](docs/ADR-002-GROUP-PREVIEW.md) documents persistence, timers and remaining multiplayer scope.
+
+## Account and order foundations
+
+`/account` supports email-code verification and preserving guest progress when real delivery is configured. Local development displays a labelled test code without sending email. Existing accounts require explicit progress-merge confirmation. On Railway with placeholders, email recovery stays unavailable and free games remain usable.
+
+`/shop` contains a local-only development payment laboratory; deployed previews show premium cases in preparation. Keys alone do not enable paid checkout. [ADR003](docs/ADR-003-ACCOUNTS-COMMERCE.md) lists configuration and remaining live-provider work. Run `pnpm api:generate` / `pnpm api:check` for the account/order API contract.
