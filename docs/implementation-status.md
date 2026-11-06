@@ -16,39 +16,39 @@ Guest solo play, database-backed notes/hints/results, discovery filters, private
 
 ## Ticket map
 
-| Ticket | State               | Evidence / remaining work                                                                                                                                        |
-| ------ | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| MN-001 | Implemented locally | Scaffold, pinned dependencies, lockfile, scripts and CI definition. GitHub CI passed for deployed commit eb8493918ebac50628c5ea1c28aab045a2e42196.               |
-| MN-002 | Partial             | Purple/ivory/lime responsive home, catalogue, game, interests, library and loading/error states. Modal/filter-sheet and full accessibility audit pending.        |
-| MN-003 | Partial             | Opaque guest sessions, private schema, owner checks and negative-access tests. Email upgrades, merges, MFA, role separation and runtime least privilege pending. |
-| MN-004 | Partial             | Five checksum-addressed draft imports, Zod validation, safe metadata projection. Publication/editorial workflow pending.                                         |
-| MN-005 | Partial             | Three free solo drafts, resumable attempts, version checks, atomic immutable results. Daily editorial releases, streaks, seven-day expiry and ranking pending.   |
-| MN-006 | Partial             | Private saved notes, free hints, explanation and spoiler-free text share. Autosave, rendered share cards and broader accessible export pending.                  |
-| MN-007 | Partial             | Free tutorial lobby, invite and atomic capacity/start checks. Paid entitlement and general request idempotency pending.                                          |
-| MN-008 | Partial             | Private round assignments, authorised sharing and board. Polling replaces realtime; outbox and room notes pending.                                               |
-| MN-009 | Partial             | Heartbeats, host transfer, deadline catch-up, pause/expiry and evidence promotion. Verified recovery and paid rehost pending.                                    |
-| MN-010 | Partial             | Private immutable votes, tie/abstention rules and persisted joint reveal for the free tutorial. Paid/full release QA pending.                                    |
-| MN-011 | Not started         | Follow acceptance criteria in chapter06; not included in the initial solo preview.                                                                               |
-| MN-012 | Not started         | Follow acceptance criteria in chapter06; not included in the initial solo preview.                                                                               |
-| MN-013 | Not started         | Follow acceptance criteria in chapter06; not included in the initial solo preview.                                                                               |
-| MN-014 | Not started         | Follow acceptance criteria in chapter06; not included in the initial solo preview.                                                                               |
-| MN-015 | Not started         | Follow acceptance criteria in chapter06; not included in the initial solo preview.                                                                               |
-| MN-016 | Not started         | Follow acceptance criteria in chapter06; not included in the initial solo preview.                                                                               |
-| MN-017 | Not started         | Follow acceptance criteria in chapter06; not included in the initial solo preview.                                                                               |
-| MN-018 | Not started         | Follow acceptance criteria in chapter06; not included in the initial solo preview.                                                                               |
-| MN-019 | Not started         | Follow acceptance criteria in chapter06; not included in the initial solo preview.                                                                               |
-| MN-020 | Not started         | Follow acceptance criteria in chapter06; not included in the initial solo preview.                                                                               |
-| MN-021 | Partial             | Local checks and desktop/mobile E2E for enabled solo scope; no full security/performance/accessibility/load certification.                                       |
-| MN-022 | Partial             | Railway staging application and PostgreSQL deployed; live browser solo smoke passed. Backup/restore and multiplayer drills pending.                              |
-| MN-023 | Not started         | Follow acceptance criteria in chapter06; not included in the initial solo preview.                                                                               |
-| MN-024 | Not started         | Follow acceptance criteria in chapter06; not included in the initial solo preview.                                                                               |
-| MN-025 | Partial             | Taxonomy constants, draft metadata validation and safe projection. Relational taxonomy/versioned editorial backfill pending.                                     |
-| MN-026 | Partial             | OR/AND filters, mode durations, counts, URL state and honest empty results. Multi-select filter UI, themes routes, retired slugs and pagination pending.         |
-| MN-027 | Partial             | Optional private guest interests with save/clear/revision conflicts. Verified-account merge and deletion flow pending.                                           |
-| MN-028 | Partial             | Saved-theme overlap ranking with stable fallback and completed-case exclusion. Full chapter07 weighted scoring and editorial fallback pending.                   |
-| MN-029 | Not started         | Follow acceptance criteria in chapter06; not included in the initial solo preview.                                                                               |
-| MN-030 | Not started         | Follow acceptance criteria in chapter06; not included in the initial solo preview.                                                                               |
-| MN-031 | Not started         | Follow acceptance criteria in chapter06; not included in the initial solo preview.                                                                               |
+| Ticket | State               | Evidence / remaining work                                                                                                                                                                                     |
+| ------ | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| MN-001 | Implemented locally | Scaffold, pinned dependencies, lockfile, scripts and CI definition. GitHub CI passed for deployed commit eb8493918ebac50628c5ea1c28aab045a2e42196.                                                            |
+| MN-002 | Partial             | Purple/ivory/lime responsive home, catalogue, game, interests, library and loading/error states. Modal/filter-sheet and full accessibility audit pending.                                                     |
+| MN-003 | Partial             | Opaque guest sessions, private schema, owner checks and negative-access tests. Email upgrade and explicit merge foundations implemented; live delivery, MFA, staff roles and runtime least privilege pending. |
+| MN-004 | Partial             | Five checksum-addressed draft imports, Zod validation, safe metadata projection. Publication/editorial workflow pending.                                                                                      |
+| MN-005 | Partial             | Three free solo drafts, resumable attempts, version checks, atomic immutable results. Daily editorial releases, streaks, seven-day expiry and ranking pending.                                                |
+| MN-006 | Partial             | Private saved notes, free hints, explanation and spoiler-free text share. Autosave, rendered share cards and broader accessible export pending.                                                               |
+| MN-007 | Partial             | Free tutorial lobby, invite and atomic capacity/start checks. Paid entitlement and general request idempotency pending.                                                                                       |
+| MN-008 | Partial             | Private round assignments, authorised sharing and board. Polling replaces realtime; outbox and room notes pending.                                                                                            |
+| MN-009 | Partial             | Heartbeats, host transfer, deadline catch-up, pause/expiry and evidence promotion. Verified recovery and paid rehost pending.                                                                                 |
+| MN-010 | Partial             | Private immutable votes, tie/abstention rules and persisted joint reveal for the free tutorial. Paid/full release QA pending.                                                                                 |
+| MN-011 | Partial             | Email challenges/upgrades/explicit merges, server-priced idempotent orders, mode-specific ownership and local payment simulation. Live delivery/checkout pending.                                             |
+| MN-012 | Not started         | Follow acceptance criteria in chapter06; not included in the initial solo preview.                                                                                                                            |
+| MN-013 | Not started         | Follow acceptance criteria in chapter06; not included in the initial solo preview.                                                                                                                            |
+| MN-014 | Not started         | Follow acceptance criteria in chapter06; not included in the initial solo preview.                                                                                                                            |
+| MN-015 | Not started         | Follow acceptance criteria in chapter06; not included in the initial solo preview.                                                                                                                            |
+| MN-016 | Not started         | Follow acceptance criteria in chapter06; not included in the initial solo preview.                                                                                                                            |
+| MN-017 | Not started         | Follow acceptance criteria in chapter06; not included in the initial solo preview.                                                                                                                            |
+| MN-018 | Not started         | Follow acceptance criteria in chapter06; not included in the initial solo preview.                                                                                                                            |
+| MN-019 | Not started         | Follow acceptance criteria in chapter06; not included in the initial solo preview.                                                                                                                            |
+| MN-020 | Not started         | Follow acceptance criteria in chapter06; not included in the initial solo preview.                                                                                                                            |
+| MN-021 | Partial             | Local checks and desktop/mobile E2E for enabled solo scope; no full security/performance/accessibility/load certification.                                                                                    |
+| MN-022 | Partial             | Railway staging application and PostgreSQL deployed; live browser solo smoke passed. Backup/restore and multiplayer drills pending.                                                                           |
+| MN-023 | Not started         | Follow acceptance criteria in chapter06; not included in the initial solo preview.                                                                                                                            |
+| MN-024 | Not started         | Follow acceptance criteria in chapter06; not included in the initial solo preview.                                                                                                                            |
+| MN-025 | Partial             | Taxonomy constants, draft metadata validation and safe projection. Relational taxonomy/versioned editorial backfill pending.                                                                                  |
+| MN-026 | Partial             | OR/AND filters, mode durations, counts, URL state and honest empty results. Multi-select filter UI, themes routes, retired slugs and pagination pending.                                                      |
+| MN-027 | Partial             | Optional private guest interests with save/clear/revision conflicts. Verified-account merge implemented; deletion/export and retention flows pending.                                                         |
+| MN-028 | Partial             | Saved-theme overlap ranking with stable fallback and completed-case exclusion. Full chapter07 weighted scoring and editorial fallback pending.                                                                |
+| MN-029 | Not started         | Follow acceptance criteria in chapter06; not included in the initial solo preview.                                                                                                                            |
+| MN-030 | Not started         | Follow acceptance criteria in chapter06; not included in the initial solo preview.                                                                                                                            |
+| MN-031 | Not started         | Follow acceptance criteria in chapter06; not included in the initial solo preview.                                                                                                                            |
 
 ## Railway scope
 
@@ -96,6 +96,18 @@ Continue with complete MN-003 account/role foundations and MN-007–010 durable 
 - Hosted manual check at `/rooms`: create free lobby, ready up, refresh and recover the same seat/readiness, recover/copy original invitation from sessionStorage, observe start disabled with one player, then leave the disposable room. `/explore?mode=group&access=free` shows exactly one free group tutorial and correct duration/theme/action.
 - Full four-browser playthroughs were automated locally against the production build, not the external Railway origin. Do not describe the hosted lobby smoke as a complete hosted multiplayer playthrough.
 - GitHub PR workflow passed for the deployed source: https://github.com/balogun2006/plotrush/actions/runs/42274095729 . A separate push-triggered duplicate was still running at the first status check.
-- Draft PR #2: https://github.com/balogun2006/plotrush/pull/2 . Main contains the prior solo preview; this new group increment remains on the feature branch for review.
+- Draft PR #2: https://github.com/balogun2006/plotrush/pull/2 . Merged into main at `a0c38498f8710fc28277fcd989732abfcb5ac98b` by owner instruction.
 - Live preview: https://plotrush-web-staging.up.railway.app/rooms . Railway is pinned to the application source above, so later documentation/screenshot commits do not deploy.
 - Screenshot: `docs/previews/plotrush-group-preview-1793991148820.jpg`.
+
+## Account and commerce foundation increment
+
+- PR #2 merged into main at `a0c38498f8710fc28277fcd989732abfcb5ac98b`. Work is isolated on `feat/accounts-commerce`.
+- Added `/account`, email challenge/delivery adapter, expiry/attempt/replay protection, session rotation/logout, same-principal upgrade and explicit existing-account merge preserving notes/history/interests. Active cross-account group merges defer until finish/leave.
+- Added private mode-specific draft products/prices, verified-owner server-priced idempotent orders, payment-attempt references and atomic duplicate-safe fulfilment. Development simulation is local-only; Railway checkout remains disabled and premium gameplay remains blocked.
+- Added generated account/commerce OpenAPI from runtime Zod contracts and CI drift check. It does not yet cover gameplay/admin or Paystack webhooks.
+- [ADR003](ADR-003-ACCOUNTS-COMMERCE.md) records configuration, migration, merge limitations and remaining MN-003/011/012 scope.
+- 47 domain tests passed after the account/principal fencing change. Tests cover code expiry/replay/attempt bounds, failed delivery, ownership denial, explicit merge, duplicate active history preservation, active room deferral, deployment mock isolation, server price/idempotency, payment mismatch/late success/duplicate transaction and mode-specific ownership.
+- Ten desktop/mobile Playwright scenarios passed against the compiled production build and PostgreSQL wire adapter. The new account scenario saves notes, verifies a labelled local test code, reloads, signs out/in, confirms an explicit merge and completes a development order. Spoofed success query does not grant ownership. Existing solo and four-browser group scenarios pass.
+- TypeScript, ESLint, OpenAPI drift check, production build and five fixture checks passed. A mobile header overlap found by the browser tests was fixed and the full suite rerun. An overlapping local test run caused a trace-artifact error; only the subsequent isolated complete pass is counted.
+- No live Resend/Paystack operation is claimed. Railway email flags remain false with a placeholder key and empty sender; an independent random auth secret was configured without exposing it. Premium products remain inactive and checkout mocks are denied on deployment.
