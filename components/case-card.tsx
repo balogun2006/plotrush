@@ -1,3 +1,4 @@
+import Link from "next/link";
 import {
   Clock3,
   ArrowUpRight,
@@ -12,6 +13,12 @@ const styles: Record<
   string,
   { icon: typeof FileSearch; number: string; label: string; className: string }
 > = {
+  "missing-mic": {
+    icon: Music2,
+    number: "004",
+    label: "ONE MYSTERY. DIFFERENT CLUES.",
+    className: "playlist",
+  },
   "last-slice": {
     icon: FileSearch,
     number: "001",
@@ -36,12 +43,15 @@ export function CaseCard({ item, filters }: { item: Card; filters?: Filters }) {
   const Icon = s.icon;
   const minutes = filters
     ? duration(item, filters)
-    : item.discovery.estimatedDurationMinutes.solo;
+    : (item.discovery.estimatedDurationMinutes.solo ??
+      item.discovery.estimatedDurationMinutes.group);
   return (
     <article className="case-card">
       <div className={"case-cover " + s.className}>
         <span className="file-number">CASE / {s.number}</span>
-        <span className="free-badge">FREE SOLO</span>
+        <span className="free-badge">
+          {item.modes.includes("solo") ? "FREE SOLO" : "FREE GROUP"}
+        </span>
         <div className="cover-orbit" />
         <Icon className="cover-icon" size={95} strokeWidth={1.1} />
         <span className="cover-caption">{s.label}</span>
@@ -62,7 +72,13 @@ export function CaseCard({ item, filters }: { item: Card; filters?: Filters }) {
             <Clock3 size={15} />
             {minutes} min
           </span>
-          <StartButton caseId={item.id} label="Play case" />
+          {item.modes.includes("solo") ? (
+            <StartButton caseId={item.id} label="Play case" />
+          ) : (
+            <Link href="/rooms" className="button lime">
+              Play together
+            </Link>
+          )}
         </div>
       </div>
     </article>
