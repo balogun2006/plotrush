@@ -35,3 +35,13 @@ Create the planned app/test scripts rather than pretending they already exist. R
 Prepare isolated staging, migrations, approved content, operational checks and recovery evidence before production. Follow chapter05 for deployment. Keep payments, Google ads and direct campaigns independently gated. Unavailable credentials or approvals block only dependent external operations, not useful independent implementation. Do not buy services, contact advertisers, change repository visibility or enable live billing without the user's applicable authorisation.
 
 Do not add an open-source licence or invent the operating entity, legal policies, brand clearance, provider credentials or campaign agreements. Ask for concrete missing inputs only when they are necessary. Keep final handovers clear about implemented, tested, mocked, deployed and outstanding work.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+## This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

@@ -25,3 +25,10 @@ test-results/
 # Production content exports and backups do not belong in git.
 private-content/
 backups/
+
+.plotrush/
+.next/
+node_modules/
+test-results/
+playwright-report/
+*.tsbuildinfo
