@@ -88,3 +88,14 @@ Continue with complete MN-003 account/role foundations and MN-007–010 durable 
 - TypeScript, ESLint, production build and all five structural fixture checks passed. Earlier browser runs found stale-action UX and readiness-button issues, corrected before this successful run. The local browser was Chromium153 from the official npm registry package via TEST_CHROME_PATH; no browser package was added to application dependencies.
 - Paystack placeholder values and false payment/direct-ad/Google-ad flags were set on Railway staging with deploys skipped. Replacing keys alone does not enable checkout; payment integration is still outstanding.
 - This increment does not complete MN-003 or all MN-007–010 release criteria. Verified identity, commerce, editorial tools, realtime outbox, full idempotency/retention and operational drills remain open.
+
+### Verified group staging release
+
+- Deployed application source: `8267eee8b37be364a3ae6a33c369ec4aeb43b1c6` (all76 workspace files matched the uploaded tree before deployment). Local working tree was clean after adopting the browser-authored commits.
+- Railway deployment `cf688c68-3daa-4011-84ac-c6a68f1f570d` reached SUCCESS. Logs confirm additive migration/import and application readiness. Existing database and solo progress were preserved.
+- Hosted manual check at `/rooms`: create free lobby, ready up, refresh and recover the same seat/readiness, recover/copy original invitation from sessionStorage, observe start disabled with one player, then leave the disposable room. `/explore?mode=group&access=free` shows exactly one free group tutorial and correct duration/theme/action.
+- Full four-browser playthroughs were automated locally against the production build, not the external Railway origin. Do not describe the hosted lobby smoke as a complete hosted multiplayer playthrough.
+- GitHub PR workflow passed for the deployed source: https://github.com/balogun2006/plotrush/actions/runs/42274095729 . A separate push-triggered duplicate was still running at the first status check.
+- Draft PR #2: https://github.com/balogun2006/plotrush/pull/2 . Main contains the prior solo preview; this new group increment remains on the feature branch for review.
+- Live preview: https://plotrush-web-staging.up.railway.app/rooms . Railway is pinned to the application source above, so later documentation/screenshot commits do not deploy.
+- Screenshot: `docs/previews/plotrush-group-preview-1793991148820.jpg`.
