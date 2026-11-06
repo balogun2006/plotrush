@@ -28,3 +28,9 @@ Redeploy a known successful commit to roll back application code. The first sche
 ## First deployment correction
 
 The first container started without the legacy file’s migration/healthcheck settings. API readiness returned 503 even though the container deployment said SUCCESS. Service settings were applied explicitly through the Railway connector and the application redeployed. Always verify actual `/api/health` and gameplay, and inspect resolved service settings rather than trusting a container status alone.
+
+## Verified release
+
+Source `eb8493918ebac50628c5ea1c28aab045a2e42196`, deployment `e6f83ec8-2edf-4f09-80d4-b5dc752b4306`, status SUCCESS. Health returned ok/draft-preview, and a complete hosted solo game plus saved notes/results/interests and discovery filters were checked in the cloud browser. Source is pinned; documentation changes do not trigger another release.
+
+Use a fresh source deployment after changing lifecycle settings and read back the effective configuration. A cached-build redeploy in this session did not resolve the missing migration. The successful fresh deployment logged the migration before startup.
