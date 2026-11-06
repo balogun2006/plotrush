@@ -111,3 +111,15 @@ Continue with complete MN-003 account/role foundations and MN-007–010 durable 
 - Ten desktop/mobile Playwright scenarios passed against the compiled production build and PostgreSQL wire adapter. The new account scenario saves notes, verifies a labelled local test code, reloads, signs out/in, confirms an explicit merge and completes a development order. Spoofed success query does not grant ownership. Existing solo and four-browser group scenarios pass.
 - TypeScript, ESLint, OpenAPI drift check, production build and five fixture checks passed. A mobile header overlap found by the browser tests was fixed and the full suite rerun. An overlapping local test run caused a trace-artifact error; only the subsequent isolated complete pass is counted.
 - No live Resend/Paystack operation is claimed. Railway email flags remain false with a placeholder key and empty sender; an independent random auth secret was configured without exposing it. Premium products remain inactive and checkout mocks are denied on deployment.
+
+### Verified account/order staging release
+
+- Application source `c86238df45398e7c18510f7c80e3cfcc0ca69422` matched all90 uploaded project files before deployment. Local working tree was clean after adopting the browser-authored commits.
+- Railway deployment `4f262ec4-2de6-4c3b-bb29-356de09486f6` reached SUCCESS. Logs confirm schema/import readiness and successful app startup.
+- Hosted `/account` correctly displays email recovery unavailable with the current placeholders; `/shop` displays premium cases in preparation and exposes no mock checkout UI.
+- A hosted free Last Slice investigation completed with100/100 after migration, survived refresh and appeared in My cases. Previously completed cases remained in the library. Live email verification or real checkout was not performed.
+- GitHub CI passed for this source in both PR and push workflows: https://github.com/balogun2006/plotrush/actions/runs/42305054011 and https://github.com/balogun2006/plotrush/actions/runs/42304901899 .
+- Draft PR #3: https://github.com/balogun2006/plotrush/pull/3 . PR #2 is merged; this increment remains on `feat/accounts-commerce` for review.
+- Preview: https://plotrush-web-staging.up.railway.app/account . Screenshot `docs/previews/plotrush-account-preview-1794004358345.jpg`.
+- Railway remains pinned to the source above; later evidence-only commits do not redeploy.
+- Email activation still needs a real RESEND_API_KEY, EMAIL_FROM on a verified sending domain and FEATURE_EMAIL_AUTH=true. AUTH_CODE_SECRET is already generated on staging and should not be replaced with a placeholder. Actual delivery must be smoke-tested before acquisition. Paystack sandbox/webhook/reconciliation/receipts and paid gameplay remain next dependent work; payment placeholders are preserved and do not enable checkout.
