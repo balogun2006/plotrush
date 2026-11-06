@@ -1,8 +1,9 @@
 "use client";
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowUpRight, LoaderCircle } from "lucide-react";
 import { api } from "./api";
+const subscribe = () => () => {};
 export function StartButton({
   caseId,
   label = "Start investigating",
@@ -12,6 +13,11 @@ export function StartButton({
   label?: string;
   className?: string;
 }) {
+  const hydrated = useSyncExternalStore(
+    subscribe,
+    () => true,
+    () => false,
+  );
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const router = useRouter();
@@ -19,7 +25,7 @@ export function StartButton({
     <div className={"start-control " + className}>
       <button
         className="button lime"
-        disabled={busy}
+        disabled={!hydrated || busy}
         onClick={async () => {
           setBusy(true);
           setError("");

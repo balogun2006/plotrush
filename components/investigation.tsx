@@ -214,7 +214,9 @@ export function Investigation({ id }: { id: string }) {
             <span className="eyebrow">PERSONS OF INTEREST</span>
             {a.suspects.map((s, i) => (
               <div key={s.id}>
-                <span className={"avatar avatar-" + i}>{s.name[0]}</span>
+                <span aria-hidden="true" className={"avatar avatar-" + i}>
+                  {s.name[0]}
+                </span>
                 <strong>{s.name}</strong>
                 <span>Suspect {String(i + 1).padStart(2, "0")}</span>
               </div>
@@ -408,7 +410,9 @@ export function Investigation({ id }: { id: string }) {
                           setConfirm(false);
                         }}
                       />
-                      <span className={"avatar avatar-" + i}>{s.name[0]}</span>
+                      <span aria-hidden="true" className={"avatar avatar-" + i}>
+                        {s.name[0]}
+                      </span>
                       {s.name}
                     </label>
                   ))}
