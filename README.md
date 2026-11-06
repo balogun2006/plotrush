@@ -6,7 +6,7 @@ PlotRush is a mobile-first mystery game platform: solve a case alone, return for
 
 ## Project status
 
-**First playable preview in development.** The feature branch implements guest solo play, discovery, notes, hints, result explanations, private interests and recommendations. Railway staging deployment is being verified. Multiplayer, accounts, payments, ads and editorial publishing are outstanding; see [implementation status](docs/implementation-status.md).
+**First playable draft preview.** The feature branch implements guest solo play, discovery, notes, hints, result explanations, private interests and recommendations. [Try the Railway staging preview](https://plotrush-web-staging.up.railway.app/). Deployment, database readiness and a complete hosted solo flow have been verified. Multiplayer, accounts, payments, ads and editorial publishing are outstanding; see [implementation status](docs/implementation-status.md).
 
 ## Planned experience
 
