@@ -15,6 +15,14 @@ import {
 import { catalogue, start, read, mutate, library } from "../domain/game";
 import { filterCases, parseFilters, facets } from "../domain/catalogue";
 import { themes } from "../domain/content";
+import {
+  createRoom,
+  joinRoom,
+  roomAction,
+  roomLibrary,
+  displayName,
+  inviteCode,
+} from "../domain/rooms";
 const version = z.number().int().positive();
 const cookie = "plotrush_guest";
 async function body(req: NextRequest) {
@@ -82,7 +90,9 @@ export async function handle(req: NextRequest, path: string[]) {
     if (req.method === "GET" && route === "cases") {
       const f = parseFilters(req.nextUrl.searchParams);
       const all = (await catalogue(db)).filter(
-        (c) => c.access === "free" && c.modes.includes("solo"),
+        (c) =>
+          c.access === "free" &&
+          (c.modes.includes("solo") || c.kind === "tutorial"),
       );
       return json({
         cases: filterCases(all, f),
@@ -93,7 +103,9 @@ export async function handle(req: NextRequest, path: string[]) {
     }
     if (req.method === "GET" && route === "taxonomy") {
       const all = (await catalogue(db)).filter(
-        (c) => c.access === "free" && c.modes.includes("solo"),
+        (c) =>
+          c.access === "free" &&
+          (c.modes.includes("solo") || c.kind === "tutorial"),
       );
       return json({
         themes: themes.map((id) => ({
@@ -155,7 +167,8 @@ export async function handle(req: NextRequest, path: string[]) {
     }
     if (
       (req.method === "POST" && route === "solo/attempts") ||
-      (req.method === "PUT" && route === "interests")
+      (req.method === "PUT" && route === "interests") ||
+      (req.method === "POST" && ["rooms", "rooms/join"].includes(route))
     ) {
       if (!actor) {
         await limit(
@@ -180,6 +193,66 @@ export async function handle(req: NextRequest, path: string[]) {
       "Start a case in this browser to continue.",
     );
     if (write) await limit(db, "principal:" + actor, 60, 60);
+    if (req.method === "GET" && route === "me/rooms")
+      return json(await roomLibrary(db, actor));
+    if (req.method === "POST" && route === "rooms") {
+      const b = z
+        .object({ caseId: z.string().max(80), displayName })
+        .strict()
+        .parse(await body(req));
+      await limit(db, "create-room:" + actor, 5, 3600);
+      return json(await createRoom(db, actor, b.caseId, b.displayName), 201);
+    }
+    if (req.method === "POST" && route === "rooms/join") {
+      const b = z
+        .object({ code: inviteCode, displayName })
+        .strict()
+        .parse(await body(req));
+      await limit(db, "join-room:" + actor, 10, 60);
+      return json(await joinRoom(db, actor, b.code, b.displayName));
+    }
+    if (path[0] === "rooms" && path[1]) {
+      const id = z.uuid().parse(path[1]);
+      if (req.method === "GET" && path.length === 2)
+        return json(await roomAction(db, actor, id));
+      if (req.method === "POST" && path.length === 3) {
+        const action = z
+          .enum([
+            "ready",
+            "start",
+            "advance",
+            "share",
+            "vote",
+            "heartbeat",
+            "leave",
+          ])
+          .parse(path[2]);
+        const schema =
+          action === "ready"
+            ? z.object({ expectedVersion: version, ready: z.boolean() })
+            : action === "share"
+              ? z.object({
+                  expectedVersion: version,
+                  clueId: z.string().max(80),
+                })
+              : action === "vote"
+                ? z.object({
+                    expectedVersion: version,
+                    suspectId: z.string().max(80),
+                    reasonId: z.string().max(80),
+                  })
+                : z.object({ expectedVersion: version });
+        return json(
+          await roomAction(
+            db,
+            actor,
+            id,
+            action,
+            schema.strict().parse(await body(req)),
+          ),
+        );
+      }
+    }
     if (req.method === "POST" && route === "solo/attempts") {
       const b = z
         .object({ caseId: z.string().min(1).max(80) })

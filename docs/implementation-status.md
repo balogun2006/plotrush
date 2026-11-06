@@ -4,7 +4,7 @@ Updated 6 November 2026. First playable **draft preview**; no alpha/beta or prod
 
 ## Delivered slice
 
-Guest solo play, database-backed notes/hints/results, discovery filters, private interests, recommendations and case library. Only three free solo drafts are playable; group/premium are denied. Payments, ads and staff tools have no active integration. Public fixture solutions remain examples.
+Guest solo play, database-backed notes/hints/results, discovery filters, private interests, recommendations and case library. Three free solo drafts and the free 2–6 player group tutorial are implemented. Premium cases remain denied. Payments, ads and staff tools have no active integration. Public fixture solutions remain examples.
 
 ## Verification
 
@@ -24,10 +24,10 @@ Guest solo play, database-backed notes/hints/results, discovery filters, private
 | MN-004 | Partial             | Five checksum-addressed draft imports, Zod validation, safe metadata projection. Publication/editorial workflow pending.                                         |
 | MN-005 | Partial             | Three free solo drafts, resumable attempts, version checks, atomic immutable results. Daily editorial releases, streaks, seven-day expiry and ranking pending.   |
 | MN-006 | Partial             | Private saved notes, free hints, explanation and spoiler-free text share. Autosave, rendered share cards and broader accessible export pending.                  |
-| MN-007 | Not started         | Follow acceptance criteria in chapter06; not included in the initial solo preview.                                                                               |
-| MN-008 | Not started         | Follow acceptance criteria in chapter06; not included in the initial solo preview.                                                                               |
-| MN-009 | Not started         | Follow acceptance criteria in chapter06; not included in the initial solo preview.                                                                               |
-| MN-010 | Not started         | Follow acceptance criteria in chapter06; not included in the initial solo preview.                                                                               |
+| MN-007 | Partial             | Free tutorial lobby, invite and atomic capacity/start checks. Paid entitlement and general request idempotency pending.                                          |
+| MN-008 | Partial             | Private round assignments, authorised sharing and board. Polling replaces realtime; outbox and room notes pending.                                               |
+| MN-009 | Partial             | Heartbeats, host transfer, deadline catch-up, pause/expiry and evidence promotion. Verified recovery and paid rehost pending.                                    |
+| MN-010 | Partial             | Private immutable votes, tie/abstention rules and persisted joint reveal for the free tutorial. Paid/full release QA pending.                                    |
 | MN-011 | Not started         | Follow acceptance criteria in chapter06; not included in the initial solo preview.                                                                               |
 | MN-012 | Not started         | Follow acceptance criteria in chapter06; not included in the initial solo preview.                                                                               |
 | MN-013 | Not started         | Follow acceptance criteria in chapter06; not included in the initial solo preview.                                                                               |
@@ -60,7 +60,7 @@ Guest solo play, database-backed notes/hints/results, discovery filters, private
 
 ## Repository and next work
 
-Work is on `feat/railway-playable-alpha`. GitHub connector writes return 403 and shell git push lacks credentials; source was committed through the owner-authenticated GitHub web UI. All 68 project files matched the tested workspace before first deployment. Subsequent startup/configuration corrections were separately tested and committed.
+PR #1 was merged into main at `a0928624d2d301c7dfb40b221a2b6aa95a811a22`. New work is on `feat/group-tutorial`. GitHub connector writes return 403 and shell git push lacks credentials; source was committed through the owner-authenticated GitHub web UI. All 68 project files matched the tested workspace before first deployment. Subsequent startup/configuration corrections were separately tested and committed.
 
 Continue with complete MN-003 account/role foundations and MN-007–010 durable group flows, then verified accounts/commerce, editorial tools, direct ads and Google adapters at their dependency points. Keep discovery core work alongside these tickets. See ADR-001-RAILWAY.md for all preview deviations.
 
@@ -76,5 +76,26 @@ Continue with complete MN-003 account/role foundations and MN-007–010 durable 
 - The local runtime could not reach the external Railway origin (`ERR_EMPTY_RESPONSE`), so automated external-target attempts did not run successfully. The six automated scenarios passed against the compiled production build locally and in GitHub CI; the hosted checks above were performed through the cloud browser. Do not describe all six as automated tests of Railway.
 - GitHub CI for the source commit passed: https://github.com/balogun2006/plotrush/actions/runs/42171728189 .
 - Production dependency audit: no known vulnerabilities reported.
-- Draft review: https://github.com/balogun2006/plotrush/pull/1 . Main has not been merged.
+- Draft review: https://github.com/balogun2006/plotrush/pull/1 . Merged into main on 6 November 2026 by owner instruction.
 - Preview screenshot is stored under docs/previews. No production readiness or backup/restore certification is claimed.
+
+## Group tutorial increment
+
+- PR #1 merged into main at `a0928624d2d301c7dfb40b221a2b6aa95a811a22`. Group work is isolated on `feat/group-tutorial`.
+- Added free `/rooms` tutorial, 2–6 players, private clues, shared board, immutable private votes, consensus reveal, reconnect/presence/host transfer and server-time deadlines. Catalogue includes the free group tutorial and Wedding & Family filter. [ADR002](ADR-002-GROUP-PREVIEW.md) explains aggregate storage and polling deviations.
+- 34 domain/SQL tests passed, including active-seat capacity races, unauthorised clue sharing, clue distribution for2–6, future-round protection on departure, stale commands, vote privacy/immutability/ties, timeout abstention and pause/expiry/reconnect.
+- Eight Playwright scenarios passed against the compiled production build and PostgreSQL wire adapter: existing six solo/discovery checks plus desktop and Pixel7 four-browser group playthroughs. Group checks include separate identities, wrong-owner share denial, shared clue propagation, reload/reconnect, private voting and persisted 100/100 reveal. The group test uses independent synthetic forwarded addresses on the local harness to avoid exhausting a shared guest-creation rate bucket; application limits are unchanged.
+- TypeScript, ESLint, production build and all five structural fixture checks passed. Earlier browser runs found stale-action UX and readiness-button issues, corrected before this successful run. The local browser was Chromium153 from the official npm registry package via TEST_CHROME_PATH; no browser package was added to application dependencies.
+- Paystack placeholder values and false payment/direct-ad/Google-ad flags were set on Railway staging with deploys skipped. Replacing keys alone does not enable checkout; payment integration is still outstanding.
+- This increment does not complete MN-003 or all MN-007–010 release criteria. Verified identity, commerce, editorial tools, realtime outbox, full idempotency/retention and operational drills remain open.
+
+### Verified group staging release
+
+- Deployed application source: `8267eee8b37be364a3ae6a33c369ec4aeb43b1c6` (all76 workspace files matched the uploaded tree before deployment). Local working tree was clean after adopting the browser-authored commits.
+- Railway deployment `cf688c68-3daa-4011-84ac-c6a68f1f570d` reached SUCCESS. Logs confirm additive migration/import and application readiness. Existing database and solo progress were preserved.
+- Hosted manual check at `/rooms`: create free lobby, ready up, refresh and recover the same seat/readiness, recover/copy original invitation from sessionStorage, observe start disabled with one player, then leave the disposable room. `/explore?mode=group&access=free` shows exactly one free group tutorial and correct duration/theme/action.
+- Full four-browser playthroughs were automated locally against the production build, not the external Railway origin. Do not describe the hosted lobby smoke as a complete hosted multiplayer playthrough.
+- GitHub PR workflow passed for the deployed source: https://github.com/balogun2006/plotrush/actions/runs/42274095729 . A separate push-triggered duplicate was still running at the first status check.
+- Draft PR #2: https://github.com/balogun2006/plotrush/pull/2 . Main contains the prior solo preview; this new group increment remains on the feature branch for review.
+- Live preview: https://plotrush-web-staging.up.railway.app/rooms . Railway is pinned to the application source above, so later documentation/screenshot commits do not deploy.
+- Screenshot: `docs/previews/plotrush-group-preview-1793991148820.jpg`.

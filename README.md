@@ -6,7 +6,7 @@ PlotRush is a mobile-first mystery game platform: solve a case alone, return for
 
 ## Project status
 
-**First playable draft preview.** The feature branch implements guest solo play, discovery, notes, hints, result explanations, private interests and recommendations. [Try the Railway staging preview](https://plotrush-web-staging.up.railway.app/). Deployment, database readiness and a complete hosted solo flow have been verified. Multiplayer, accounts, payments, ads and editorial publishing are outstanding; see [implementation status](docs/implementation-status.md).
+**First playable draft preview.** The preview implements guest solo play, discovery, notes, hints, result explanations, private interests and recommendations. The next slice adds a free 2–6 player group tutorial with private clues, sharing and voting. [Try the Railway staging preview](https://plotrush-web-staging.up.railway.app/). Deployment, database readiness and a complete hosted solo flow have been verified. Paid multiplayer, verified accounts, payments, ads and editorial publishing are outstanding; see [implementation status](docs/implementation-status.md).
 
 ## Planned experience
 
@@ -84,3 +84,7 @@ pnpm test:e2e
 E2E tests serve the compiled production build against a disposable PGlite TCP server through the same pg driver used on Railway. Run build first. `TEST_BASE_URL` targets a separately deployed preview; `TEST_CHROME_PATH` optionally selects an installed Chromium executable when browser downloads are unavailable.
 
 [Railway deployment instructions](docs/RAILWAY-DEPLOYMENT.md) include environment variables, verification and recovery requirements.
+
+## Free group tutorial
+
+Open `/rooms` to create or join The Missing Microphone. Use separate browser profiles/devices for different players; tabs in the same browser share a seat. Everyone readies up, the host starts, players share private evidence and vote for a joint reveal. Keep your browser session to reconnect. [ADR002](docs/ADR-002-GROUP-PREVIEW.md) documents persistence, timers and remaining multiplayer scope.

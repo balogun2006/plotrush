@@ -29,6 +29,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <Link href="/explore">
               <Compass size={17} /> Explore
             </Link>
+            <Link href="/rooms">Play together</Link>
             <Link href="/library">
               <Bookmark size={17} /> My cases
             </Link>

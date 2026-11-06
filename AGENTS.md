@@ -2,7 +2,7 @@
 
 ## Scope and current state
 
-This repository currently contains specifications and development fixtures, not an implemented application. Read README.md and docs/implementation/README.md before editing. Follow the handoff v1.1; theme discovery and optional interests are core scope. The MN ticket prefix is retained for traceability from the original planning documents.
+This repository contains a working Railway preview plus specifications and development fixtures. See docs/implementation-status.md for the exact implemented scope. Read README.md and docs/implementation/README.md before editing. Follow the handoff v1.1; theme discovery and optional interests are core scope. The MN ticket prefix is retained for traceability from the original planning documents.
 
 Do not interpret a request to update repository documentation as permission to begin an unrelated full application build. When application implementation is requested, start at MN-001, create a focused branch and work through the actual dependencies. MN-025–029 belong before alpha, not after MN-024 just because their numbers are higher. Record progress in docs/implementation-status.md.
 
@@ -22,13 +22,7 @@ Do not interpret a request to update repository documentation as permission to b
 
 Inspect existing code and local instructions before scaffolding. Preserve user changes, pin supported dependency versions, commit lockfile and migrations, and document architecture changes. Implement domain operations transactionally with meaningful negative-access, concurrency and payment tests. Use the contracts in chapter02 and chapter07, and generate OpenAPI schemas during implementation.
 
-Until a web application exists, the only runnable project validation is:
-
-```bash
-python3 docs/implementation/validate_starter_cases.py
-```
-
-Create the planned app/test scripts rather than pretending they already exist. Run checks appropriate to each change and record actual results. Never overwrite user code to make this repository look like a fresh template.
+Run `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`, `pnpm test:e2e` and `pnpm content:validate` as appropriate. E2E requires a built application and Chromium. Record actual results; do not claim tests that did not run. Preserve user code and keep migrations additive.
 
 ## Releases and external dependencies
 

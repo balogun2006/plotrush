@@ -191,10 +191,13 @@ export default function Home() {
         <div>
           <h3>Some secrets are better solved together.</h3>
           <p>
-            Private clues, shared theories and group reveals are in development.
+            Try a free mystery for 2–6 players. Private clues, shared theories
+            and a group reveal.
           </p>
         </div>
-        <span className="small-pill">Multiplayer coming later</span>
+        <Link href="/rooms" className="button lime">
+          Play together
+        </Link>
       </section>
     </>
   );

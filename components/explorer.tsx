@@ -92,17 +92,27 @@ export function Explorer() {
                 onChange={(e) => select("themes", e.target.value)}
               >
                 <option value="">All themes</option>
-                <option value="everyday-mystery">Everyday Mystery</option>
-                {params.get("themes") &&
-                  params.get("themes") !== "everyday-mystery" && (
-                    <option value={params.get("themes")!}>
-                      {params
-                        .get("themes")!
-                        .split(",")
-                        .map((t) => labels[t] ?? t)
-                        .join(" + ")}
-                    </option>
-                  )}
+                {[
+                  "everyday-mystery",
+                  "wedding-family",
+                  "thriller",
+                  "cold-case",
+                  "heist",
+                  "supernatural",
+                ].map((t) => (
+                  <option value={t} key={t}>
+                    {labels[t]}
+                  </option>
+                ))}
+                {params.get("themes")?.includes(",") && (
+                  <option value={params.get("themes")!}>
+                    {params
+                      .get("themes")!
+                      .split(",")
+                      .map((t) => labels[t] ?? t)
+                      .join(" + ")}
+                  </option>
+                )}
               </select>
             </label>
             <label>
