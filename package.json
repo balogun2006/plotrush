@@ -15,7 +15,9 @@
     "test:e2e": "playwright test",
     "content:validate": "python3 docs/implementation/validate_starter_cases.py",
     "db:migrate": "node --import tsx scripts/migrate.ts",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "api:generate": "node --import tsx scripts/generate-openapi.ts",
+    "api:check": "node --import tsx scripts/generate-openapi.ts --check"
   },
   "dependencies": {
     "@electric-sql/pglite": "0.5.15",
