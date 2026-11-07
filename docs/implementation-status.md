@@ -123,3 +123,17 @@ Continue with complete MN-003 account/role foundations and MN-007–010 durable 
 - Preview: https://plotrush-web-staging.up.railway.app/account . Screenshot `docs/previews/plotrush-account-preview-1794004358345.jpg`.
 - Railway remains pinned to the source above; later evidence-only commits do not redeploy.
 - Email activation still needs a real RESEND_API_KEY, EMAIL_FROM on a verified sending domain and FEATURE_EMAIL_AUTH=true. AUTH_CODE_SECRET is already generated on staging and should not be replaced with a placeholder. Actual delivery must be smoke-tested before acquisition. Paystack sandbox/webhook/reconciliation/receipts and paid gameplay remain next dependent work; payment placeholders are preserved and do not enable checkout.
+
+## Paystack sandbox integration increment
+
+- Branch `feat/paystack-integration` builds on the unmerged account/order foundation (PR #3). No previous PR was merged as part of this increment.
+- Added hosted Paystack checkout with server-generated stable references, initialization leases, allowlisted checkout redirects, owner-only return/status checks and explicit sandbox products. Live checkout remains unavailable in this draft preview.
+- Added bounded raw-byte webhook signature verification, timestamp/rotation support and opt-in legacy compatibility; durable deduplicated PostgreSQL inbox; bounded reconciliation worker with crash-recoverable leases; independent receipt outbox. Amount/currency/environment/reference and provider transaction uniqueness remain server enforced. Query parameters never grant ownership.
+- Migration004 is additive and idempotent. Fulfilment locks order before attempt to preserve consistent lock ordering. Duplicate purchases receive a manual-review audit event; no automatic refunds are implemented.
+- 59 domain/provider/SQL tests passed, including initialization races/uncertainty, large provider IDs, signature tampering/rotation/replay, inbox deduplication, pending retries, permanent mismatches, abandoned leases, late success, negative owner access and independent receipt retry.
+- TypeScript, ESLint, generated OpenAPI drift check, production build and five structural fixture checks passed. A stale local Turbopack cache initially failed to open; rebuilding with a fresh generated cache succeeded without source changes.
+- Browser tests exercise the real compiled webhook route with synthetic signatures and ignored events, alongside existing solo, account and four-browser group journeys. Provider HTTP calls in domain tests are controlled transports; no actual Paystack or Resend operation is claimed.
+- [ADR004](ADR-004-PAYSTACK.md) records architecture and remaining scope. [Railway variable runbook](RAILWAY-VARIABLES.md) lists owner values, activation switches, endpoint configuration, worker references and smoke/recovery steps.
+- Real API/signing keys and a verified email sender are still required before external sandbox acceptance checks. Premium gameplay, refunds, editorial approval, ad integrations and production operational certification remain open; this does not complete all MN-012 release criteria.
+
+- Final isolated Playwright run: all12 desktop/mobile scenarios passed against the compiled production build and PostgreSQL wire adapter. Earlier runs found missing test-session/version setup and shared guest-rate-bucket exhaustion; the fixture now uses a separate synthetic address, preserving application limits. No automated external-origin acceptance test is claimed.
