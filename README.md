@@ -6,7 +6,7 @@ PlotRush is a mobile-first mystery game platform: solve a case alone, return for
 
 ## Project status
 
-**First playable draft preview.** The preview implements guest solo play, discovery, notes, hints, result explanations, private interests and recommendations. The next slice adds a free 2–6 player group tutorial with private clues, sharing and voting. [Try the Railway staging preview](https://plotrush-web-staging.up.railway.app/). Deployment, database readiness and a complete hosted solo flow have been verified. Paid multiplayer, verified accounts, payments, ads and editorial publishing are outstanding; see [implementation status](docs/implementation-status.md).
+**Playable draft preview.** Free solo and 2–6 player group tutorials, themed discovery, private notes/interests, verified-email account foundations and server-priced orders are implemented. Paystack sandbox checkout, signed webhook inbox, reconciliation and optional receipt delivery are integrated behind disabled flags. Real provider credentials and test transactions are still required. Premium gameplay, live billing, ads and editorial publishing remain outstanding. [Try staging](https://plotrush-web-staging.up.railway.app/) and see [implementation status](docs/implementation-status.md).
 
 ## Planned experience
 
@@ -37,7 +37,7 @@ Themes describe intended catalogue coverage. The supplied drafts populate Everyd
 
 ## Proposed technical stack
 
-TypeScript · Next.js App Router · React · CSS · Railway PostgreSQL/hosting · pg · Zod · Vitest · Playwright. [ADR 001](docs/ADR-001-RAILWAY.md) documents the owner-approved hosting change and guest-auth limitations. Paystack remains planned.
+TypeScript · Next.js App Router · React · CSS · Railway PostgreSQL/hosting · pg · Zod · Vitest · Playwright. [ADR 001](docs/ADR-001-RAILWAY.md) documents the owner-approved hosting change and guest-auth limitations. Paystack sandbox configuration is documented in [Railway variables](docs/RAILWAY-VARIABLES.md).
 
 ## Validate the supplied fixtures
 
@@ -93,4 +93,8 @@ Open `/rooms` to create or join The Missing Microphone. Use separate browser pro
 
 `/account` supports email-code verification and preserving guest progress when real delivery is configured. Local development displays a labelled test code without sending email. Existing accounts require explicit progress-merge confirmation. On Railway with placeholders, email recovery stays unavailable and free games remain usable.
 
-`/shop` contains a local-only development payment laboratory; deployed previews show premium cases in preparation. Keys alone do not enable paid checkout. [ADR003](docs/ADR-003-ACCOUNTS-COMMERCE.md) lists configuration and remaining live-provider work. Run `pnpm api:generate` / `pnpm api:check` for the account/order API contract.
+`/shop` contains a local-only development payment laboratory. Deployed previews show premium cases in preparation until explicit Paystack sandbox switches and credentials are configured. Keys alone do not enable checkout. [ADR003](docs/ADR-003-ACCOUNTS-COMMERCE.md) records account/order foundations; [ADR004](docs/ADR-004-PAYSTACK.md) extends them with sandbox payments. Run `pnpm api:generate` / `pnpm api:check` for the account/order API contract.
+
+## Paystack sandbox integration
+
+[Railway variables and activation steps](docs/RAILWAY-VARIABLES.md) list the exact keys, feature switches, webhook URL and private cron worker settings. [ADR004](docs/ADR-004-PAYSTACK.md) explains durable verification and remaining release gates. Hosted checkout needs no public key. Never enable live billing for the public draft cases.
