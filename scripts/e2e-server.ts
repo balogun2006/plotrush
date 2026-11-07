@@ -28,6 +28,10 @@ const child = spawn(
       PREVIEW_MODE: "true",
       DATABASE_URL: url,
       APP_URL: "http://127.0.0.1:3000",
+      PAYSTACK_ENVIRONMENT: "test",
+      PAYSTACK_SECRET_KEY: "sk_test_" + "a".repeat(32),
+      PAYSTACK_WEBHOOK_SECRET: "whsec_" + "b".repeat(32),
+      PAYSTACK_ALLOW_LEGACY_WEBHOOKS: "false",
     },
   },
 );

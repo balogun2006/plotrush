@@ -48,7 +48,7 @@ const doc = {
     title: "PlotRush account and commerce foundation",
     version: "0.2.0",
     description:
-      "Generated from runtime Zod contracts. Scope: newly implemented account/order routes; gameplay and admin paths remain to be added. Payment simulation is local development/test only. No live checkout or Paystack webhook contract is claimed.",
+      "Generated from runtime Zod contracts. Scope: newly implemented account/order routes; gameplay and admin paths remain to be added. Payment simulation is local-only. Paystack test checkout, verification and signed webhook acknowledgement are implemented; live billing remains gated.",
   },
   servers: [{ url: "/api/v1" }],
   components: {
@@ -57,6 +57,24 @@ const doc = {
     },
   },
   paths: {
+    "/api/webhooks/paystack": {
+      servers: [{ url: "/" }],
+      post: {
+        description:
+          "Raw-body signed Paystack event. No cookie/Origin required. Timestamped Paystack-Signature preferred; optional explicit legacy x-paystack-signature. Acknowledged after durable inbox insert.",
+        security: [],
+        requestBody: {
+          required: true,
+          content: { "application/json": { schema: { type: "object" } } },
+        },
+        responses: {
+          "200": { description: "Durably received" },
+          "401": { description: "Invalid signature" },
+          "413": { description: "Event too large" },
+          "503": { description: "Configuration or database unavailable" },
+        },
+      },
+    },
     "/account": { get: { responses: { "200": response(accountSchema) } } },
     "/auth/config": { get: { responses: { "200": response() } } },
     "/auth/request-code": { post: post(requestCodeInput) },
@@ -65,12 +83,12 @@ const doc = {
     "/products": { get: { responses: { "200": response() } } },
     "/orders": {
       post: {
-        ...post(orderInput, orderSchema, true),
+        ...post(orderInput, orderSchema),
         responses: {
           "201": response(orderSchema),
           "403": { description: "Verified email required" },
           "409": { description: "Idempotency conflict or already owned" },
-          "503": { description: "Checkout disabled on deployment" },
+          "503": { description: "Checkout disabled or provider unconfigured" },
         },
       },
     },
@@ -90,6 +108,28 @@ const doc = {
           "404": { description: "Order not owned or unavailable" },
         },
       },
+    },
+    "/orders/{id}/checkout": {
+      parameters: [
+        {
+          name: "id",
+          in: "path",
+          required: true,
+          schema: { type: "string", format: "uuid" },
+        },
+      ],
+      post: post(emptyInput),
+    },
+    "/orders/{id}/verify": {
+      parameters: [
+        {
+          name: "id",
+          in: "path",
+          required: true,
+          schema: { type: "string", format: "uuid" },
+        },
+      ],
+      post: post(emptyInput, orderSchema),
     },
     "/orders/{id}/development-payment": {
       parameters: [
