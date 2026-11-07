@@ -137,3 +137,15 @@ Continue with complete MN-003 account/role foundations and MN-007–010 durable 
 - Real API/signing keys and a verified email sender are still required before external sandbox acceptance checks. Premium gameplay, refunds, editorial approval, ad integrations and production operational certification remain open; this does not complete all MN-012 release criteria.
 
 - Final isolated Playwright run: all12 desktop/mobile scenarios passed against the compiled production build and PostgreSQL wire adapter. Earlier runs found missing test-session/version setup and shared guest-rate-bucket exhaustion; the fixture now uses a separate synthetic address, preserving application limits. No automated external-origin acceptance test is claimed.
+
+### Verified Paystack increment staging release
+
+- Application source `88e53c44afc8058832c325cfef347b455514e185` matched all103 tested project files before deployment. Both services are pinned to this source; later documentation/evidence commits do not deploy.
+- Web deployment `fdd7748a-7729-4f37-b3f3-8b5c4d70915c` reached SUCCESS. Runtime logs confirmed the additive schema/import migration before application readiness, and hosted `/api/health` returned `{"status":"ok","mode":"draft-preview"}`.
+- Worker service `plotrush-payments-worker` (`12435406-974e-416f-904a-39e0f6aa299d`) deployment `5bf6c821-3752-476a-aa64-bb1d45c6bf88` reached SUCCESS. Its read-back configuration is a private five-minute UTC cron, restart NEVER, no public domain/healthcheck, `pnpm payments:work` and references to the existing web credentials. No real provider operation has been performed.
+- Hosted `/shop` shows premium cases in preparation and exposes no mock checkout. New Paystack switches remain false; existing key names and auth secret were preserved.
+- Hosted manual regression: free Playlist Switch started without email/payment/invitation/ad, evidence opened, private notes survived reload, and a correct verdict produced100/100. The saved result appeared in My cases alongside two earlier completed Last Slice attempts after migration. This hosted smoke is distinct from the12 automated local browser scenarios.
+- GitHub CI passed for both PR and push on the deployed source: https://github.com/balogun2006/plotrush/actions/runs/42389045837 and https://github.com/balogun2006/plotrush/actions/runs/42388968742 .
+- Draft PR #4: https://github.com/balogun2006/plotrush/pull/4 . It is based on `feat/accounts-commerce` (PR #3) for a focused integration diff; merge #3 first and retarget #4 to main when requested. Neither PR was merged in this increment.
+- Screenshot: `docs/previews/plotrush-paystack-staging-1794067437062.jpg`. Staging preview: https://plotrush-web-staging.up.railway.app/library .
+- Railway environment status confirmed the worker's first scheduled execution **succeeded** at `2026-11-07T16:05:08.529Z`, with zero running/crashed worker replicas afterward. Web and Postgres were online; no issues, failures or pending work were reported. This confirms cron startup/exit with current configuration, not a real Paystack transaction or delivered receipt.
