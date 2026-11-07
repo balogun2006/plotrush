@@ -7,7 +7,7 @@ import { lockPrincipal } from "./identity";
 export type CommerceEnvironment = "development" | "test" | "live";
 import { orderInput } from "../contracts/account-commerce";
 export { orderInput } from "../contracts/account-commerce";
-export async function products(db: Sql, development = false) {
+export async function products(db: Sql, development = false, sandbox = false) {
   return (
     await db.query<{
       id: string;
@@ -17,8 +17,8 @@ export async function products(db: Sql, development = false) {
       amountMinor: number;
       currency: string;
     }>(
-      `SELECT p.id,p.case_key AS "caseId",p.mode,v.id AS "priceVersionId",v.amount_minor::integer AS "amountMinor",v.currency FROM app_private.products p JOIN app_private.price_versions v ON v.product_id=p.id WHERE ($1 OR (p.active AND v.active)) ORDER BY p.id`,
-      [development],
+      `SELECT p.id,p.case_key AS "caseId",p.mode,v.id AS "priceVersionId",v.amount_minor::integer AS "amountMinor",v.currency FROM app_private.products p JOIN app_private.price_versions v ON v.product_id=p.id WHERE ($1 OR (p.active AND v.active) OR ($2 AND p.id IN ('wedding-gift-solo','wedding-gift-group') AND v.id IN ('demo-wedding-solo-ngn-v1','demo-wedding-group-ngn-v1'))) ORDER BY p.id`,
+      [development, sandbox],
     )
   ).rows;
 }
@@ -28,6 +28,7 @@ export async function createOrder(
   input: z.infer<typeof orderInput>,
   environment: CommerceEnvironment,
   development = false,
+  sandbox = false,
 ) {
   input = orderInput.parse(input);
   return db.transaction(async (tx) => {
@@ -77,11 +78,12 @@ export async function createOrder(
     );
     const price = (
       await tx.query<{ amount_minor: string; currency: string }>(
-        "SELECT v.amount_minor,v.currency FROM app_private.price_versions v JOIN app_private.products p ON p.id=v.product_id WHERE v.id=$1 AND p.id=$2 AND ($3 OR (v.active AND p.active)) FOR SHARE OF p,v",
+        "SELECT v.amount_minor,v.currency FROM app_private.price_versions v JOIN app_private.products p ON p.id=v.product_id WHERE v.id=$1 AND p.id=$2 AND ($3 OR (v.active AND p.active) OR ($4 AND p.id IN ('wedding-gift-solo','wedding-gift-group') AND v.id IN ('demo-wedding-solo-ngn-v1','demo-wedding-group-ngn-v1'))) FOR SHARE OF p,v",
         [
           input.priceVersionId,
           input.productId,
           development && environment === "development",
+          sandbox && environment === "test",
         ],
       )
     ).rows[0];
@@ -146,7 +148,7 @@ export async function preparePayment(
       "CHECKOUT_CLOSED",
       "This checkout is closed. Create a fresh order if the quote expired.",
     );
-    const ref = "plotrush_" + randomUUID().replaceAll("-", "");
+    const ref = "plotrush-" + randomUUID().replaceAll("-", "");
     await tx.query(
       "INSERT INTO app_private.payment_attempts(id,order_id,provider,reference) VALUES($1,$2,$3,$4) ON CONFLICT(order_id,provider) DO NOTHING",
       [randomUUID(), id, provider, ref],
@@ -183,10 +185,9 @@ export async function fulfilPayment(db: Database, payment: VerifiedPayment) {
         order_id: string;
         status: string;
         transaction_id: string | null;
-      }>(
-        "SELECT * FROM app_private.payment_attempts WHERE reference=$1 FOR UPDATE",
-        [payment.reference],
-      )
+      }>("SELECT * FROM app_private.payment_attempts WHERE reference=$1", [
+        payment.reference,
+      ])
     ).rows[0];
     assert(attempt, 404, "REFERENCE_UNKNOWN", "Payment reference unavailable.");
     const order = (
@@ -200,6 +201,20 @@ export async function fulfilPayment(db: Database, payment: VerifiedPayment) {
         attempt.order_id,
       ])
     ).rows[0];
+    await tx.query(
+      "SELECT id FROM app_private.payment_attempts WHERE id=$1 FOR UPDATE",
+      [attempt.id],
+    );
+    // Re-read after the order lock; another verifier may have fulfilled it.
+    Object.assign(
+      attempt,
+      (
+        await tx.query(
+          "SELECT status,transaction_id FROM app_private.payment_attempts WHERE id=$1",
+          [attempt.id],
+        )
+      ).rows[0],
+    );
     assert(
       payment.success &&
         Number.isSafeInteger(payment.amountMinor) &&
@@ -240,6 +255,13 @@ export async function fulfilPayment(db: Database, payment: VerifiedPayment) {
       "UPDATE app_private.orders SET status='paid',paid_at=now() WHERE id=$1",
       [attempt.order_id],
     );
+    const alreadyOwned =
+      (
+        await tx.query(
+          "SELECT 1 FROM app_private.entitlements WHERE owner_id=$1 AND product_id=$2",
+          [order.buyer_id, order.product_id],
+        )
+      ).rows.length > 0;
     await tx.query(
       "INSERT INTO app_private.entitlements(id,owner_id,product_id,origin_order_id) VALUES($1,$2,$3,$4) ON CONFLICT(owner_id,product_id) DO NOTHING",
       [randomUUID(), order.buyer_id, order.product_id, attempt.order_id],
@@ -248,6 +270,15 @@ export async function fulfilPayment(db: Database, payment: VerifiedPayment) {
       "INSERT INTO app_private.audit_events(id,actor_id,action,entity_id) VALUES($1,$2,'payment_verified',$3)",
       [randomUUID(), order.buyer_id, attempt.order_id],
     );
+    await tx.query(
+      "INSERT INTO app_private.payment_receipts(id,order_id) SELECT $1,$2 WHERE $3<>'development' ON CONFLICT(order_id) DO NOTHING",
+      [randomUUID(), attempt.order_id, order.environment],
+    );
+    if (alreadyOwned)
+      await tx.query(
+        "INSERT INTO app_private.audit_events(id,actor_id,action,entity_id) VALUES($1,$2,'duplicate_purchase_review',$3)",
+        [randomUUID(), order.buyer_id, attempt.order_id],
+      );
     return { orderId: attempt.order_id, fulfilled: true };
   });
 }
