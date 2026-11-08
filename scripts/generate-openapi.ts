@@ -1,3 +1,12 @@
+import {
+  draftInput,
+  saveDraftInput,
+  revisionInput,
+  reviewInput,
+  codeInput,
+  scheduleInput,
+  unpublishInput,
+} from "../lib/contracts/editorial";
 import { readFile, writeFile } from "node:fs/promises";
 import { z } from "zod";
 import {
@@ -42,21 +51,117 @@ const post = (input: z.ZodType, output?: z.ZodType, dev = false) => ({
     },
   },
 });
+const staffSecurity = [{ session: [], staffSession: [] }];
+const staffPost = (input: z.ZodType, role: string) => ({
+  ...post(input),
+  security: staffSecurity,
+  "x-staff-role": role,
+  responses: {
+    "200": response(),
+    "400": { description: "Invalid document or review" },
+    "403": { description: "Staff role/fresh MFA required" },
+    "409": { description: "Stale revision or invalid transition" },
+    "503": { description: "Publishing disabled or unavailable" },
+  },
+});
+const draftId = [
+  {
+    name: "id",
+    in: "path",
+    required: true,
+    schema: { type: "string", format: "uuid" },
+  },
+];
+const staffPaths = {
+  "/admin/access": {
+    get: {
+      security: [{ session: [] }],
+      responses: {
+        "200": response(),
+        "403": { description: "Not a staff member" },
+      },
+    },
+  },
+  "/admin/mfa/enroll": {
+    post: {
+      ...staffPost(
+        emptyInput,
+        "staff membership + fresh email session; no prior MFA",
+      ),
+      security: [{ session: [] }],
+    },
+  },
+  "/admin/mfa/verify": {
+    post: {
+      ...staffPost(
+        codeInput,
+        "staff membership + valid TOTP; creates staff cookie",
+      ),
+      security: [{ session: [] }],
+    },
+  },
+  "/admin/mfa/lock": {
+    post: {
+      ...staffPost(emptyInput, "staff membership"),
+      security: [{ session: [] }],
+    },
+  },
+  "/admin/cases": {
+    get: { security: staffSecurity, responses: { "200": response() } },
+    post: staffPost(draftInput, "content_editor"),
+  },
+  "/admin/cases/{id}": {
+    parameters: draftId,
+    get: { security: staffSecurity, responses: { "200": response() } },
+    put: staffPost(saveDraftInput, "content_editor"),
+  },
+  ...Object.fromEntries(
+    ["submit", "return", "approve", "publish", "revise"].map((action) => [
+      "/admin/cases/{id}/" + action,
+      {
+        parameters: draftId,
+        post: staffPost(
+          action === "approve" ? reviewInput : revisionInput,
+          ["approve", "publish", "return"].includes(action)
+            ? "content_publisher"
+            : "content_editor",
+        ),
+      },
+    ]),
+  ),
+  "/admin/templates": {
+    get: { security: staffSecurity, responses: { "200": response() } },
+  },
+  "/admin/audit": {
+    get: { security: staffSecurity, responses: { "200": response() } },
+  },
+  "/admin/calendar": {
+    post: staffPost(scheduleInput, "content_publisher + publication switch"),
+  },
+  "/admin/releases/{key}/unpublish": {
+    parameters: [
+      { name: "key", in: "path", required: true, schema: { type: "string" } },
+    ],
+    post: staffPost(unpublishInput, "content_publisher"),
+  },
+};
 const doc = {
   openapi: "3.1.0",
   info: {
     title: "PlotRush account and commerce foundation",
     version: "0.2.0",
     description:
-      "Generated from runtime Zod contracts. Scope: newly implemented account/order routes; gameplay and admin paths remain to be added. Payment simulation is local-only. Paystack test checkout, verification and signed webhook acknowledgement are implemented; live billing remains gated.",
+      "Generated from runtime Zod contracts. Scope: newly implemented account/order routes; gameplay paths remain to be added. Staff editorial routes require protected roles and a fresh MFA cookie. Payment simulation is local-only. Paystack test checkout, verification and signed webhook acknowledgement are implemented; live billing remains gated.",
   },
   servers: [{ url: "/api/v1" }],
   components: {
     securitySchemes: {
       session: { type: "apiKey", in: "cookie", name: "plotrush_guest" },
+      staffSession: { type: "apiKey", in: "cookie", name: "plotrush_staff" },
     },
   },
   paths: {
+    ...staffPaths,
     "/api/webhooks/paystack": {
       servers: [{ url: "/" }],
       post: {
