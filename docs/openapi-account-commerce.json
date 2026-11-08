@@ -3,7 +3,7 @@
   "info": {
     "title": "PlotRush account and commerce foundation",
     "version": "0.2.0",
-    "description": "Generated from runtime Zod contracts. Scope: newly implemented account/order routes; gameplay and admin paths remain to be added. Payment simulation is local-only. Paystack test checkout, verification and signed webhook acknowledgement are implemented; live billing remains gated."
+    "description": "Generated from runtime Zod contracts. Scope: newly implemented account/order routes; gameplay paths remain to be added. Staff editorial routes require protected roles and a fresh MFA cookie. Payment simulation is local-only. Paystack test checkout, verification and signed webhook acknowledgement are implemented; live billing remains gated."
   },
   "servers": [
     {
@@ -16,10 +16,1685 @@
         "type": "apiKey",
         "in": "cookie",
         "name": "plotrush_guest"
+      },
+      "staffSession": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "plotrush_staff"
       }
     }
   },
   "paths": {
+    "/admin/access": {
+      "get": {
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response in the data/meta envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {},
+                    "meta": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not a staff member"
+          }
+        }
+      }
+    },
+    "/admin/mfa/enroll": {
+      "post": {
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {},
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response in the data/meta envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {},
+                    "meta": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid document or review"
+          },
+          "403": {
+            "description": "Staff role/fresh MFA required"
+          },
+          "409": {
+            "description": "Stale revision or invalid transition"
+          },
+          "503": {
+            "description": "Publishing disabled or unavailable"
+          }
+        },
+        "x-staff-role": "staff membership + fresh email session; no prior MFA"
+      }
+    },
+    "/admin/mfa/verify": {
+      "post": {
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "type": "string",
+                    "pattern": "^\\d{6}$"
+                  }
+                },
+                "required": [
+                  "code"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response in the data/meta envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {},
+                    "meta": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid document or review"
+          },
+          "403": {
+            "description": "Staff role/fresh MFA required"
+          },
+          "409": {
+            "description": "Stale revision or invalid transition"
+          },
+          "503": {
+            "description": "Publishing disabled or unavailable"
+          }
+        },
+        "x-staff-role": "staff membership + valid TOTP; creates staff cookie"
+      }
+    },
+    "/admin/mfa/lock": {
+      "post": {
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {},
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response in the data/meta envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {},
+                    "meta": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid document or review"
+          },
+          "403": {
+            "description": "Staff role/fresh MFA required"
+          },
+          "409": {
+            "description": "Stale revision or invalid transition"
+          },
+          "503": {
+            "description": "Publishing disabled or unavailable"
+          }
+        },
+        "x-staff-role": "staff membership"
+      }
+    },
+    "/admin/cases": {
+      "get": {
+        "security": [
+          {
+            "session": [],
+            "staffSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response in the data/meta envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {},
+                    "meta": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "security": [
+          {
+            "session": [],
+            "staffSession": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "content": {
+                    "type": "object",
+                    "properties": {
+                      "key": {
+                        "type": "string"
+                      },
+                      "slug": {
+                        "type": "string"
+                      },
+                      "title": {
+                        "type": "string"
+                      },
+                      "synopsis": {
+                        "type": "string"
+                      },
+                      "briefing": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "mini",
+                          "tutorial",
+                          "premium"
+                        ]
+                      },
+                      "access": {
+                        "type": "string",
+                        "enum": [
+                          "free",
+                          "paid"
+                        ]
+                      },
+                      "modes": {
+                        "minItems": 1,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "enum": [
+                            "solo",
+                            "group"
+                          ]
+                        }
+                      },
+                      "minPlayers": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "maxPlayers": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "suspects": {
+                        "minItems": 2,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "name"
+                          ]
+                        }
+                      },
+                      "reasons": {
+                        "minItems": 2,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "text": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "text"
+                          ]
+                        }
+                      },
+                      "rounds": {
+                        "minItems": 1,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "number": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "title": {
+                              "type": "string"
+                            },
+                            "clues": {
+                              "minItems": 1,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "title": {
+                                    "type": "string"
+                                  },
+                                  "body": {
+                                    "type": "string"
+                                  },
+                                  "round": {
+                                    "type": "integer",
+                                    "exclusiveMinimum": 0,
+                                    "maximum": 9007199254740991
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "title",
+                                  "body",
+                                  "round"
+                                ]
+                              }
+                            },
+                            "hints": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "tier": {
+                                    "type": "number"
+                                  },
+                                  "text": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "tier",
+                                  "text"
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "number",
+                            "title",
+                            "clues",
+                            "hints"
+                          ]
+                        }
+                      },
+                      "answer": {
+                        "type": "object",
+                        "properties": {
+                          "suspectId": {
+                            "type": "string"
+                          },
+                          "reasonId": {
+                            "type": "string"
+                          },
+                          "decisiveClueIds": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "explanation": {
+                            "type": "string"
+                          },
+                          "eliminations": {
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string"
+                            },
+                            "additionalProperties": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "required": [
+                          "suspectId",
+                          "reasonId",
+                          "decisiveClueIds",
+                          "explanation",
+                          "eliminations"
+                        ]
+                      },
+                      "discovery": {
+                        "type": "object",
+                        "properties": {
+                          "primaryTheme": {
+                            "type": "string",
+                            "enum": [
+                              "thriller",
+                              "cold-case",
+                              "wedding-family",
+                              "heist",
+                              "supernatural",
+                              "everyday-mystery"
+                            ]
+                          },
+                          "themes": {
+                            "minItems": 1,
+                            "maxItems": 3,
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "enum": [
+                                "thriller",
+                                "cold-case",
+                                "wedding-family",
+                                "heist",
+                                "supernatural",
+                                "everyday-mystery"
+                              ]
+                            }
+                          },
+                          "moods": {
+                            "minItems": 1,
+                            "maxItems": 2,
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "enum": [
+                                "lighthearted",
+                                "suspenseful",
+                                "dark"
+                              ]
+                            }
+                          },
+                          "difficulty": {
+                            "type": "string",
+                            "enum": [
+                              "beginner",
+                              "intermediate",
+                              "expert"
+                            ]
+                          },
+                          "contentWarnings": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "estimatedDurationMinutes": {
+                            "type": "object",
+                            "properties": {
+                              "solo": {
+                                "type": "integer",
+                                "exclusiveMinimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "group": {
+                                "type": "integer",
+                                "exclusiveMinimum": 0,
+                                "maximum": 9007199254740991
+                              }
+                            }
+                          }
+                        },
+                        "required": [
+                          "primaryTheme",
+                          "themes",
+                          "moods",
+                          "difficulty",
+                          "contentWarnings",
+                          "estimatedDurationMinutes"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "key",
+                      "slug",
+                      "title",
+                      "synopsis",
+                      "briefing",
+                      "kind",
+                      "access",
+                      "modes",
+                      "minPlayers",
+                      "maxPlayers",
+                      "suspects",
+                      "reasons",
+                      "rounds",
+                      "answer",
+                      "discovery"
+                    ]
+                  }
+                },
+                "required": [
+                  "content"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response in the data/meta envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {},
+                    "meta": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid document or review"
+          },
+          "403": {
+            "description": "Staff role/fresh MFA required"
+          },
+          "409": {
+            "description": "Stale revision or invalid transition"
+          },
+          "503": {
+            "description": "Publishing disabled or unavailable"
+          }
+        },
+        "x-staff-role": "content_editor"
+      }
+    },
+    "/admin/cases/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "get": {
+        "security": [
+          {
+            "session": [],
+            "staffSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response in the data/meta envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {},
+                    "meta": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "security": [
+          {
+            "session": [],
+            "staffSession": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "content": {
+                    "type": "object",
+                    "properties": {
+                      "key": {
+                        "type": "string"
+                      },
+                      "slug": {
+                        "type": "string"
+                      },
+                      "title": {
+                        "type": "string"
+                      },
+                      "synopsis": {
+                        "type": "string"
+                      },
+                      "briefing": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "mini",
+                          "tutorial",
+                          "premium"
+                        ]
+                      },
+                      "access": {
+                        "type": "string",
+                        "enum": [
+                          "free",
+                          "paid"
+                        ]
+                      },
+                      "modes": {
+                        "minItems": 1,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "enum": [
+                            "solo",
+                            "group"
+                          ]
+                        }
+                      },
+                      "minPlayers": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "maxPlayers": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "suspects": {
+                        "minItems": 2,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "name"
+                          ]
+                        }
+                      },
+                      "reasons": {
+                        "minItems": 2,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "text": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "text"
+                          ]
+                        }
+                      },
+                      "rounds": {
+                        "minItems": 1,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "number": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "title": {
+                              "type": "string"
+                            },
+                            "clues": {
+                              "minItems": 1,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "title": {
+                                    "type": "string"
+                                  },
+                                  "body": {
+                                    "type": "string"
+                                  },
+                                  "round": {
+                                    "type": "integer",
+                                    "exclusiveMinimum": 0,
+                                    "maximum": 9007199254740991
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "title",
+                                  "body",
+                                  "round"
+                                ]
+                              }
+                            },
+                            "hints": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "tier": {
+                                    "type": "number"
+                                  },
+                                  "text": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "tier",
+                                  "text"
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "number",
+                            "title",
+                            "clues",
+                            "hints"
+                          ]
+                        }
+                      },
+                      "answer": {
+                        "type": "object",
+                        "properties": {
+                          "suspectId": {
+                            "type": "string"
+                          },
+                          "reasonId": {
+                            "type": "string"
+                          },
+                          "decisiveClueIds": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "explanation": {
+                            "type": "string"
+                          },
+                          "eliminations": {
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string"
+                            },
+                            "additionalProperties": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "required": [
+                          "suspectId",
+                          "reasonId",
+                          "decisiveClueIds",
+                          "explanation",
+                          "eliminations"
+                        ]
+                      },
+                      "discovery": {
+                        "type": "object",
+                        "properties": {
+                          "primaryTheme": {
+                            "type": "string",
+                            "enum": [
+                              "thriller",
+                              "cold-case",
+                              "wedding-family",
+                              "heist",
+                              "supernatural",
+                              "everyday-mystery"
+                            ]
+                          },
+                          "themes": {
+                            "minItems": 1,
+                            "maxItems": 3,
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "enum": [
+                                "thriller",
+                                "cold-case",
+                                "wedding-family",
+                                "heist",
+                                "supernatural",
+                                "everyday-mystery"
+                              ]
+                            }
+                          },
+                          "moods": {
+                            "minItems": 1,
+                            "maxItems": 2,
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "enum": [
+                                "lighthearted",
+                                "suspenseful",
+                                "dark"
+                              ]
+                            }
+                          },
+                          "difficulty": {
+                            "type": "string",
+                            "enum": [
+                              "beginner",
+                              "intermediate",
+                              "expert"
+                            ]
+                          },
+                          "contentWarnings": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "estimatedDurationMinutes": {
+                            "type": "object",
+                            "properties": {
+                              "solo": {
+                                "type": "integer",
+                                "exclusiveMinimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "group": {
+                                "type": "integer",
+                                "exclusiveMinimum": 0,
+                                "maximum": 9007199254740991
+                              }
+                            }
+                          }
+                        },
+                        "required": [
+                          "primaryTheme",
+                          "themes",
+                          "moods",
+                          "difficulty",
+                          "contentWarnings",
+                          "estimatedDurationMinutes"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "key",
+                      "slug",
+                      "title",
+                      "synopsis",
+                      "briefing",
+                      "kind",
+                      "access",
+                      "modes",
+                      "minPlayers",
+                      "maxPlayers",
+                      "suspects",
+                      "reasons",
+                      "rounds",
+                      "answer",
+                      "discovery"
+                    ]
+                  },
+                  "expectedRevision": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "content",
+                  "expectedRevision"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response in the data/meta envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {},
+                    "meta": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid document or review"
+          },
+          "403": {
+            "description": "Staff role/fresh MFA required"
+          },
+          "409": {
+            "description": "Stale revision or invalid transition"
+          },
+          "503": {
+            "description": "Publishing disabled or unavailable"
+          }
+        },
+        "x-staff-role": "content_editor"
+      }
+    },
+    "/admin/cases/{id}/submit": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "post": {
+        "security": [
+          {
+            "session": [],
+            "staffSession": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "expectedRevision": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "expectedRevision"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response in the data/meta envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {},
+                    "meta": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid document or review"
+          },
+          "403": {
+            "description": "Staff role/fresh MFA required"
+          },
+          "409": {
+            "description": "Stale revision or invalid transition"
+          },
+          "503": {
+            "description": "Publishing disabled or unavailable"
+          }
+        },
+        "x-staff-role": "content_editor"
+      }
+    },
+    "/admin/cases/{id}/return": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "post": {
+        "security": [
+          {
+            "session": [],
+            "staffSession": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "expectedRevision": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "expectedRevision"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response in the data/meta envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {},
+                    "meta": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid document or review"
+          },
+          "403": {
+            "description": "Staff role/fresh MFA required"
+          },
+          "409": {
+            "description": "Stale revision or invalid transition"
+          },
+          "503": {
+            "description": "Publishing disabled or unavailable"
+          }
+        },
+        "x-staff-role": "content_publisher"
+      }
+    },
+    "/admin/cases/{id}/approve": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "post": {
+        "security": [
+          {
+            "session": [],
+            "staffSession": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "expectedRevision": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "review": {
+                    "type": "object",
+                    "properties": {
+                      "logic": {
+                        "type": "boolean",
+                        "const": true
+                      },
+                      "accessibility": {
+                        "type": "boolean",
+                        "const": true
+                      },
+                      "rights": {
+                        "type": "boolean",
+                        "const": true
+                      },
+                      "sensitivity": {
+                        "type": "boolean",
+                        "const": true
+                      },
+                      "spoilers": {
+                        "type": "boolean",
+                        "const": true
+                      },
+                      "blindTest": {
+                        "type": "string",
+                        "minLength": 10,
+                        "maxLength": 2000
+                      },
+                      "notes": {
+                        "type": "string",
+                        "minLength": 10,
+                        "maxLength": 4000
+                      }
+                    },
+                    "required": [
+                      "logic",
+                      "accessibility",
+                      "rights",
+                      "sensitivity",
+                      "spoilers",
+                      "blindTest",
+                      "notes"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "expectedRevision",
+                  "review"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response in the data/meta envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {},
+                    "meta": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid document or review"
+          },
+          "403": {
+            "description": "Staff role/fresh MFA required"
+          },
+          "409": {
+            "description": "Stale revision or invalid transition"
+          },
+          "503": {
+            "description": "Publishing disabled or unavailable"
+          }
+        },
+        "x-staff-role": "content_publisher"
+      }
+    },
+    "/admin/cases/{id}/publish": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "post": {
+        "security": [
+          {
+            "session": [],
+            "staffSession": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "expectedRevision": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "expectedRevision"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response in the data/meta envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {},
+                    "meta": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid document or review"
+          },
+          "403": {
+            "description": "Staff role/fresh MFA required"
+          },
+          "409": {
+            "description": "Stale revision or invalid transition"
+          },
+          "503": {
+            "description": "Publishing disabled or unavailable"
+          }
+        },
+        "x-staff-role": "content_publisher"
+      }
+    },
+    "/admin/cases/{id}/revise": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "post": {
+        "security": [
+          {
+            "session": [],
+            "staffSession": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "expectedRevision": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "expectedRevision"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response in the data/meta envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {},
+                    "meta": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid document or review"
+          },
+          "403": {
+            "description": "Staff role/fresh MFA required"
+          },
+          "409": {
+            "description": "Stale revision or invalid transition"
+          },
+          "503": {
+            "description": "Publishing disabled or unavailable"
+          }
+        },
+        "x-staff-role": "content_editor"
+      }
+    },
+    "/admin/templates": {
+      "get": {
+        "security": [
+          {
+            "session": [],
+            "staffSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response in the data/meta envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {},
+                    "meta": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/audit": {
+      "get": {
+        "security": [
+          {
+            "session": [],
+            "staffSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response in the data/meta envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {},
+                    "meta": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/calendar": {
+      "post": {
+        "security": [
+          {
+            "session": [],
+            "staffSession": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "day": {
+                    "type": "string",
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                  },
+                  "versionId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 160
+                  }
+                },
+                "required": [
+                  "day",
+                  "versionId"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response in the data/meta envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {},
+                    "meta": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid document or review"
+          },
+          "403": {
+            "description": "Staff role/fresh MFA required"
+          },
+          "409": {
+            "description": "Stale revision or invalid transition"
+          },
+          "503": {
+            "description": "Publishing disabled or unavailable"
+          }
+        },
+        "x-staff-role": "content_publisher + publication switch"
+      }
+    },
+    "/admin/releases/{key}/unpublish": {
+      "parameters": [
+        {
+          "name": "key",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "post": {
+        "security": [
+          {
+            "session": [],
+            "staffSession": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "minLength": 10,
+                    "maxLength": 1000
+                  }
+                },
+                "required": [
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response in the data/meta envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {},
+                    "meta": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid document or review"
+          },
+          "403": {
+            "description": "Staff role/fresh MFA required"
+          },
+          "409": {
+            "description": "Stale revision or invalid transition"
+          },
+          "503": {
+            "description": "Publishing disabled or unavailable"
+          }
+        },
+        "x-staff-role": "content_publisher"
+      }
+    },
     "/api/webhooks/paystack": {
       "servers": [
         {
