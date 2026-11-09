@@ -1,3 +1,4 @@
+import { refundSummary } from "./refunds";
 import { z } from "zod";
 export const emailSchema = z
   .string()
@@ -29,7 +30,7 @@ export const accountSchema = z.union([
     verifiedAt: z.string(),
   }),
 ]);
-export const orderSchema = z.object({
+export const orderSchema = refundSummary.extend({
   id: z.uuid(),
   productId: z.string(),
   caseId: z.string(),
