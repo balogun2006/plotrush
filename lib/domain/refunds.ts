@@ -6,12 +6,12 @@ import { assert } from "./errors";
 import { lockPrincipal } from "./identity";
 import { audit, requireStaff } from "./staff";
 
-type FinanceContext = {
+export type FinanceContext = {
   actor: string;
   playerToken: string;
   staffToken?: string;
 };
-const finance = (db: Sql, ctx: FinanceContext) =>
+export const requireFinance = (db: Sql, ctx: FinanceContext) =>
   requireStaff(db, ctx.actor, ctx.playerToken, ctx.staffToken, "finance");
 
 export async function requestRefund(
@@ -68,17 +68,25 @@ export async function financeOrders(
   ctx: FinanceContext,
   search: string,
 ) {
-  await finance(db, ctx);
+  await requireFinance(db, ctx);
   return (
     await db.query<FinanceOrder>(
       `SELECT o.id,p.reference,o.product_id AS "productId",o.amount_minor::integer AS "amountMinor",o.currency,
               rr.reason,rr.id AS "requestId",(rr.id IS NOT NULL) AS "refundRequested",
+              COALESCE(d.records,'[]'::jsonb) AS disputes,
               COALESCE((SELECT sum(amount_minor) FROM app_private.refunds WHERE order_id=o.id),0)::integer AS "refundedMinor"
        FROM app_private.orders o
        JOIN app_private.payment_attempts p ON p.order_id=o.id AND p.provider='paystack' AND p.status='succeeded'
        LEFT JOIN app_private.refund_requests rr ON rr.order_id=o.id AND rr.closed_at IS NULL
+       LEFT JOIN LATERAL (
+         SELECT bool_or(holds_access) AS held,
+           jsonb_agg(jsonb_build_object('providerId',provider_id,'status',provider_status,'resolution',resolution,
+             'refundMinor',refund_minor,'holdsAccess',holds_access,'updatedAt',to_char(timezone('UTC',provider_updated_at),'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'))
+             ORDER BY provider_updated_at DESC,provider_id) AS records
+         FROM app_private.payment_disputes WHERE order_id=o.id
+       ) d ON true
        WHERE o.status='paid' AND o.environment='test'
-         AND (CASE WHEN $1='' THEN rr.id IS NOT NULL ELSE o.id::text=$1 OR p.reference=$1 END)
+         AND (CASE WHEN $1='' THEN rr.id IS NOT NULL OR d.held ELSE o.id::text=$1 OR p.reference=$1 END)
        ORDER BY rr.created_at DESC NULLS LAST,o.paid_at DESC LIMIT 50`,
       [search],
     )
@@ -92,10 +100,10 @@ export async function reconcileRefund(
   providerId: string,
   provider: { fetchRefund(id: string): Promise<VerifiedRefund> },
 ) {
-  await finance(db, ctx);
+  await requireFinance(db, ctx);
   const refund = await provider.fetchRefund(providerId);
   return db.transaction(async (tx) => {
-    await finance(tx, ctx);
+    await requireFinance(tx, ctx);
     const { rows } = await tx.query<{
       amount: number;
       currency: string;
@@ -184,7 +192,7 @@ export async function closeRefundRequest(
   reason: string,
 ) {
   return db.transaction(async (tx) => {
-    await finance(tx, ctx);
+    await requireFinance(tx, ctx);
     await tx.query("SELECT id FROM app_private.orders WHERE id=$1 FOR UPDATE", [
       orderId,
     ]);

@@ -82,6 +82,7 @@ async function orderForPlay(
     !!premium &&
     order.status === "paid" &&
     order.refundedMinor < order.amountMinor &&
+    !order.disputeHold &&
     order.environment === premium.environment &&
     supportsPremium(
       await playableVersion(db, order.caseId),

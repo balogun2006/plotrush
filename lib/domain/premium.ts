@@ -48,7 +48,7 @@ export async function ownsPremium(
      JOIN app_private.products p ON p.id=e.product_id
      JOIN app_private.orders o ON o.id=e.origin_order_id
      WHERE e.owner_id=$1 AND p.case_key=$2 AND p.mode=$3
-       AND e.state='active' AND o.status='paid' AND o.environment=$4
+       AND e.state='active' AND NOT e.dispute_hold AND o.status='paid' AND o.environment=$4
        AND o.buyer_id=e.owner_id AND o.product_id=e.product_id
      FOR SHARE OF e`,
     [actor, caseId, mode, policy.environment],
@@ -86,7 +86,7 @@ export async function premiumLibrary(
   const { rows } = await db.query<{ caseId: string; mode: PlayMode }>(
     `SELECT p.case_key AS "caseId",p.mode FROM app_private.entitlements e
      JOIN app_private.products p ON p.id=e.product_id
-     WHERE e.owner_id=$1 AND e.state='active' ORDER BY p.case_key,p.mode`,
+     WHERE e.owner_id=$1 AND e.state='active' AND NOT e.dispute_hold ORDER BY p.case_key,p.mode`,
     [actor],
   );
   const games = [];

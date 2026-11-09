@@ -31,6 +31,7 @@ export const accountSchema = z.union([
   }),
 ]);
 export const orderSchema = refundSummary.extend({
+  disputeHold: z.boolean(),
   id: z.uuid(),
   productId: z.string(),
   caseId: z.string(),

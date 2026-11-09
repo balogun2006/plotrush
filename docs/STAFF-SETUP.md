@@ -50,3 +50,7 @@ Database runtime least privilege, staff recovery tooling, MFA key rotation, full
 Grant `finance` to an intended verified staff account using `pnpm staff:manage grant <verified-email> finance`. The grant replaces the account's role list and invalidates existing staff sessions. Finance-only staff can use the finance desk after MFA and have no editorial access. Admins can use both workspaces.
 
 The finance desk lists open refund requests and searches paid Paystack test orders by exact order ID or payment reference. If authorised to issue a refund, complete it in Paystack test mode. Enter the numeric Paystack refund ID against the matching order in the finance desk and select **Verify and reconcile refund**. A pending or failed provider status does not change the confirmed total. A fully refunded order closes its open request automatically. Use **Close request** with an audit reason when review is complete after a partial refund or when the request will not proceed. Avoid putting card or bank details in request or review notes.
+
+### Sync a Paystack dispute
+
+Find the paid test order by payment reference in the finance desk. Enter the Paystack dispute ID and select **Verify and sync dispute**. The desk shows the latest verified status and whether it blocks future premium starts. Sync again after Paystack updates the dispute. Review or submit evidence in the Paystack dashboard. The finance desk keeps a hold on accepted or ambiguous outcomes, and uses the refund reconciliation workflow for confirmed refunds.

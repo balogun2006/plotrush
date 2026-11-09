@@ -14,6 +14,7 @@ type Order = {
   playAvailable?: boolean;
   refundedMinor: number;
   refundRequested: boolean;
+  disputeHold: boolean;
 };
 export function OrderView({ id }: { id: string }) {
   const [order, setOrder] = useState<Order | null>(null),
@@ -131,6 +132,12 @@ export function OrderView({ id }: { id: string }) {
           {order.status === "paid" ? (
             <>
               <p>Your purchase is recorded in your account.</p>
+              {order.disputeHold && !fullRefund && (
+                <p className="room-message">
+                  This payment is under dispute review. New premium starts are
+                  paused.
+                </p>
+              )}
               {order.playAvailable && (
                 <PremiumPlay caseId={order.caseId} mode={order.mode} />
               )}

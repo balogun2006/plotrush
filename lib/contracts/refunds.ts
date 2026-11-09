@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { disputeSummary } from "./disputes";
 
 const minorUnits = z.number().int().nonnegative();
 export const refundReason = z.string().trim().min(1).max(500);
@@ -25,5 +26,6 @@ export const financeOrderSchema = refundSummary.extend({
   currency: z.string(),
   reason: z.string().nullable(),
   requestId: z.uuid().nullable(),
+  disputes: z.array(disputeSummary),
 });
 export type FinanceOrder = z.infer<typeof financeOrderSchema>;
