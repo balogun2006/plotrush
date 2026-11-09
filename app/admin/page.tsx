@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+import { FinanceDesk } from "../../components/finance-desk";
 import { api, ApiError } from "../../components/api";
 type Access = {
   roles: string[];
@@ -68,6 +69,10 @@ export default function Editorial() {
     publisher = access?.roles.some((r) =>
       ["content_publisher", "admin"].includes(r),
     );
+  const canEditContent = !!(editor || publisher);
+  const canReconcile = access?.roles.some(
+    (r) => r === "finance" || r === "admin",
+  );
   const loadWorkspace = useCallback(async () => {
     const [s, t, a] = await Promise.all([
       api<Summary>("admin/cases"),
@@ -92,8 +97,9 @@ export default function Editorial() {
     };
   }, []);
   useEffect(() => {
-    if (access?.verified) loadWorkspace().catch((e) => setError(e.message));
-  }, [access?.verified, loadWorkspace]);
+    if (access?.verified && canEditContent)
+      loadWorkspace().catch((e) => setError(e.message));
+  }, [access?.verified, canEditContent, loadWorkspace]);
   async function work(fn: () => Promise<void>) {
     setBusy(true);
     setError("");
@@ -136,15 +142,44 @@ export default function Editorial() {
       );
     });
   }
+  const toolbar = (
+    <div className="editorial-toolbar">
+      <span>Roles: {access?.roles.join(", ")}</span>
+      <button
+        className="text-button"
+        disabled={busy}
+        onClick={() =>
+          work(async () => {
+            await api("admin/mfa/lock", "POST", {});
+            setSummary(null);
+            setTemplates([]);
+            setAudit([]);
+            setSource("");
+            setSelected(null);
+            setAccess((current) =>
+              current ? { ...current, verified: false } : null,
+            );
+          })
+        }
+      >
+        Lock workspace
+      </button>
+    </div>
+  );
   return (
     <div className="editorial-page">
       <div className="editorial-heading">
         <div>
           <span className="eyebrow">PLOTRUSH STUDIO</span>
-          <h1>Build the next aha.</h1>
+          <h1>
+            {canReconcile && !canEditContent
+              ? "Payment operations"
+              : "Build the next aha."}
+          </h1>
           <p>
-            Private editorial workspace · drafts, independent review and
-            immutable releases.
+            {canReconcile && !canEditContent
+              ? "Private finance workspace for test purchases."
+              : "Private editorial workspace · drafts, independent review and immutable releases."}
           </p>
         </div>
         <Link href="/">Back to games</Link>
@@ -246,28 +281,15 @@ export default function Editorial() {
             </button>
           </form>
         </section>
+      ) : !canEditContent ? (
+        <>
+          {toolbar}
+          {canReconcile && <FinanceDesk />}
+        </>
       ) : (
         <>
-          <div className="editorial-toolbar">
-            <span>Roles: {access.roles.join(", ")}</span>
-            <button
-              className="text-button"
-              disabled={busy}
-              onClick={() =>
-                work(async () => {
-                  await api("admin/mfa/lock", "POST", {});
-                  setSummary(null);
-                  setTemplates([]);
-                  setAudit([]);
-                  setSource("");
-                  setSelected(null);
-                  setAccess({ ...access, verified: false });
-                })
-              }
-            >
-              Lock workspace
-            </button>
-          </div>
+          {toolbar}
+          {canReconcile && <FinanceDesk />}
           {!access.publishEnabled && (
             <p className="room-message">
               Public publishing is disabled. Drafting and review remain
