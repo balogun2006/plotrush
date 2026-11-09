@@ -7,6 +7,8 @@ import { identity, limit, hash } from "../domain/identity";
 import { AppError, assert } from "../domain/errors";
 import { authSecret } from "../providers/email";
 import { staffMember, enroll, unlock, requireStaff } from "../domain/staff";
+import { reconcileDisputeInput } from "../contracts/disputes";
+import { reconcileDispute } from "../domain/disputes";
 import { closeRefundInput, reconcileRefundInput } from "../contracts/refunds";
 import {
   closeRefundRequest,
@@ -151,6 +153,26 @@ export async function handleEditorial(req: NextRequest, path: string[]) {
       req.method === "POST"
     ) {
       const orderId = z.uuid().parse(path[2]);
+      if (path[3] === "reconcile-dispute") {
+        await requireStaff(db, actor, playerToken, ctx.staffToken, "finance");
+        const { providerId } = reconcileDisputeInput.parse(await jsonBody(req));
+        const config = paystackConfig();
+        assert(
+          config?.environment === "test",
+          503,
+          "PAYMENT_CONFIG_REQUIRED",
+          "Paystack test credentials are required.",
+        );
+        return reply(
+          await reconcileDispute(
+            db,
+            ctx,
+            orderId,
+            providerId,
+            new PaystackClient(config),
+          ),
+        );
+      }
       if (path[3] === "reconcile-refund") {
         await requireStaff(db, actor, playerToken, ctx.staffToken, "finance");
         const { providerId } = reconcileRefundInput.parse(await jsonBody(req));
