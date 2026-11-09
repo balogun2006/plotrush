@@ -1,3 +1,4 @@
+import { reconcileDispute } from "../lib/domain/disputes";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, expect, it, vi } from "vitest";
 import { embedded } from "../lib/db/adapters";
@@ -18,7 +19,11 @@ import {
 } from "../lib/domain/refunds";
 import { listEditorial } from "../lib/domain/editorial";
 import { read, start } from "../lib/domain/game";
-import { PaystackClient, type VerifiedRefund } from "../lib/providers/paystack";
+import {
+  PaystackClient,
+  type VerifiedRefund,
+  type VerifiedDispute,
+} from "../lib/providers/paystack";
 import type { StaffRole } from "../lib/domain/staff";
 
 let db: Database;
@@ -246,4 +251,132 @@ it("reads a provider refund over GET without losing large numeric transaction ID
     amountMinor: 200000,
     status: "processed",
   });
+});
+
+it("holds access for matched Paystack disputes and releases only after every hold clears", async () => {
+  const owner = await account();
+  const order = await paidOrder(owner.id);
+  const finance = await staff("finance");
+  const attempt = await start(db, owner.id, caseId, policy);
+  const initial: VerifiedDispute = {
+    id: "789",
+    status: "awaiting-bank-feedback",
+    resolution: "declined",
+    currency: null,
+    refund_amount: null,
+    domain: "test",
+    updatedAt: "2026-11-09T12:00:00.000Z",
+    transaction: {
+      id: order.payment.transactionId,
+      reference: order.payment.reference,
+      amount: order.amountMinor,
+      currency: order.currency,
+      domain: "test",
+    },
+  };
+  const get = vi.fn(async () => initial);
+  await expect(
+    reconcileDispute(
+      db,
+      { ...finance, staffToken: undefined },
+      order.id,
+      initial.id,
+      { fetchDispute: get },
+    ),
+  ).rejects.toMatchObject({ code: "MFA_REQUIRED" });
+  expect(get).not.toHaveBeenCalled();
+  for (const transaction of [
+    { ...initial.transaction, reference: "wrong" },
+    { ...initial.transaction, amount: 1 },
+    { ...initial.transaction, currency: "GBP" },
+    { ...initial.transaction, domain: "live" as const },
+  ]) {
+    await expect(
+      reconcileDispute(db, finance, order.id, initial.id, {
+        fetchDispute: async () => ({ ...initial, transaction }),
+      }),
+    ).rejects.toMatchObject({ code: "DISPUTE_MISMATCH" });
+  }
+  const sync = (d: VerifiedDispute) =>
+    reconcileDispute(db, finance, order.id, d.id, {
+      fetchDispute: async () => d,
+    });
+  const [first, retry] = await Promise.all([sync(initial), sync(initial)]);
+  expect(first).toEqual(retry);
+  expect(first.holdsAccess).toBe(true);
+  expect((await readOrder(db, owner.id, order.id)).disputeHold).toBe(true);
+  await expect(start(db, owner.id, caseId, policy)).rejects.toMatchObject({
+    code: "PURCHASE_REQUIRED",
+  });
+  expect((await read(db, owner.id, attempt.id)).id).toBe(attempt.id);
+  expect(
+    (await financeOrders(db, finance, "")).find((o) => o.id === order.id)
+      ?.disputes,
+  ).toEqual([first]);
+  const second = { ...initial, id: "790", status: "pending", resolution: null };
+  await sync(second);
+  const resolved = {
+    ...initial,
+    status: "resolved",
+    updatedAt: "2026-11-09T13:00:00.000Z",
+  };
+  expect((await sync(resolved)).holdsAccess).toBe(false);
+  expect((await sync(initial)).status).toBe("resolved");
+  await expect(
+    sync({ ...resolved, resolution: "merchant-accepted" }),
+  ).rejects.toMatchObject({ code: "DISPUTE_CONFLICT" });
+  await expect(start(db, owner.id, caseId, policy)).rejects.toMatchObject({
+    code: "PURCHASE_REQUIRED",
+  });
+  await sync({ ...resolved, id: second.id });
+  expect((await start(db, owner.id, caseId, policy)).id).toBe(attempt.id);
+  const accepted = {
+    ...resolved,
+    updatedAt: "2026-11-09T14:00:00.000Z",
+    resolution: "merchant-accepted",
+    refund_amount: order.amountMinor,
+  };
+  expect((await sync(accepted)).holdsAccess).toBe(true);
+  expect((await readOrder(db, owner.id, order.id)).refundedMinor).toBe(0);
+  await reconcileRefund(db, finance, order.id, "880", {
+    fetchRefund: async () => ({
+      id: "880",
+      transactionId: initial.transaction.id,
+      amountMinor: order.amountMinor,
+      currency: order.currency,
+      environment: "test",
+      status: "processed",
+    }),
+  });
+  await sync({ ...resolved, updatedAt: "2026-11-09T15:00:00.000Z" });
+  await expect(start(db, owner.id, caseId, policy)).rejects.toMatchObject({
+    code: "PURCHASE_REQUIRED",
+  });
+  const events = await db.query(
+    "SELECT 1 FROM app_private.audit_events WHERE entity_id=$1 AND action='dispute.reconciled'",
+    [order.id],
+  );
+  expect(events.rows).toHaveLength(6);
+});
+
+it("fetches the documented dispute shape and discards unrelated provider data", async () => {
+  const client = new PaystackClient(
+    {
+      environment: "test",
+      secret: "sk_test_demo",
+      appUrl: "https://plotrush.example",
+      allowLegacy: false,
+    },
+    async (url, init) => {
+      expect(url).toBe("https://api.paystack.co/dispute/2867");
+      expect(init?.method).toBe("GET");
+      return new Response(
+        '{"status":true,"data":{"id":2867,"status":"archived","resolution":null,"refund_amount":null,"currency":null,"domain":"test","updatedAt":"2026-11-09T10:00:00.000Z","transaction":{"id":9223372036854775807,"reference":"ref","currency":"NGN","amount":200000,"domain":"test","authorization":{"example":"private"}},"customer":{"email":"fixture@example.test"}}}',
+      );
+    },
+  );
+  const dispute = await client.fetchDispute("2867");
+  expect(dispute.transaction.id).toBe("9223372036854775807");
+  expect(dispute).not.toHaveProperty("customer");
+  expect(dispute.transaction).not.toHaveProperty("authorization");
 });
