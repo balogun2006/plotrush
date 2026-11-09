@@ -185,8 +185,8 @@ export function Investigation({ id }: { id: string }) {
           </button>
         </div>
         <p className="save-note">
-          Saved for this browser. Clearing cookies removes access. Preview
-          results are unranked.
+          {a.dailyDay ? `Daily result for ${a.dailyDay} UTC. ` : ""}
+          Saved for this browser.
         </p>
         <p role="status">{notice}</p>
         <Link className="text-link" href="/interests">
@@ -202,9 +202,11 @@ export function Investigation({ id }: { id: string }) {
       <div className="game-heading">
         <div>
           <span className="eyebrow">
-            {a.access === "paid"
-              ? "PREMIUM SOLO INVESTIGATION"
-              : "FREE SOLO INVESTIGATION"}
+            {a.dailyDay
+              ? "DAILY MYSTERY / " + a.dailyDay
+              : a.access === "paid"
+                ? "PREMIUM SOLO INVESTIGATION"
+                : "FREE SOLO INVESTIGATION"}
           </span>
           <h1>{a.title}</h1>
         </div>
