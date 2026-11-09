@@ -1,4 +1,10 @@
 import {
+  financeOrderSchema,
+  reconcileRefundInput,
+  refundRequestInput,
+  closeRefundInput,
+} from "../lib/contracts/refunds";
+import {
   draftInput,
   saveDraftInput,
   revisionInput,
@@ -75,6 +81,51 @@ const draftId = [
   },
 ];
 const staffPaths = {
+  "/admin/finance/orders": {
+    get: {
+      security: staffSecurity,
+      "x-staff-role": "finance",
+      parameters: [
+        {
+          name: "search",
+          in: "query",
+          schema: { type: "string", maxLength: 100 },
+        },
+      ],
+      responses: {
+        "200": response(z.array(financeOrderSchema)),
+        "403": { description: "Finance role and fresh MFA required" },
+      },
+    },
+  },
+  "/admin/finance/orders/{id}/reconcile-refund": {
+    parameters: draftId,
+    post: {
+      ...post(
+        reconcileRefundInput,
+        z.object({
+          status: z.enum([
+            "pending",
+            "processing",
+            "needs-attention",
+            "failed",
+            "processed",
+          ]),
+          refundedMinor: z.number().int().nonnegative(),
+        }),
+      ),
+      security: staffSecurity,
+      "x-staff-role": "finance",
+    },
+  },
+  "/admin/finance/orders/{id}/close-refund-request": {
+    parameters: draftId,
+    post: {
+      ...post(closeRefundInput, z.object({ closed: z.literal(true) })),
+      security: staffSecurity,
+      "x-staff-role": "finance",
+    },
+  },
   "/admin/access": {
     get: {
       security: [{ session: [] }],
@@ -229,6 +280,10 @@ const doc = {
           "404": { description: "Order not owned or unavailable" },
         },
       },
+    },
+    "/orders/{id}/refund-request": {
+      parameters: draftId,
+      post: post(refundRequestInput, orderSchema),
     },
     "/orders/{id}/checkout": {
       parameters: [

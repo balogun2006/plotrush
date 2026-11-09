@@ -1,16 +1,15 @@
 // Operator-only command. No public role-grant endpoint or automatic email allowlist.
 import { postgres } from "../lib/db/adapters";
-import { audit } from "../lib/domain/staff";
+import { audit, staffRoles } from "../lib/domain/staff";
 import { z } from "zod";
 const [action, email, role] = process.argv.slice(2);
 if (
   !["grant", "revoke"].includes(action) ||
   !z.email().safeParse(email).success ||
-  (action === "grant" &&
-    !["content_editor", "content_publisher", "admin"].includes(role ?? ""))
+  (action === "grant" && !staffRoles.some((item) => item === role))
 )
   throw Error(
-    "Usage: pnpm staff:manage grant <verified-email> <content_editor|content_publisher|admin> OR revoke <verified-email>",
+    "Usage: pnpm staff:manage grant <verified-email> <content_editor|content_publisher|finance|admin> OR revoke <verified-email>",
   );
 if (!process.env.DATABASE_URL)
   throw Error(

@@ -12,12 +12,15 @@ type Order = {
   mode: "solo" | "group";
   caseId: string;
   playAvailable?: boolean;
+  refundedMinor: number;
+  refundRequested: boolean;
 };
 export function OrderView({ id }: { id: string }) {
   const [order, setOrder] = useState<Order | null>(null),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
-    [notice, setNotice] = useState("");
+    [notice, setNotice] = useState(""),
+    [reason, setReason] = useState("");
   const load = useCallback(
     () => api<Order>("orders/" + id).then(setOrder),
     [id],
@@ -71,13 +74,30 @@ export function OrderView({ id }: { id: string }) {
       setBusy(false);
     }
   }
+  async function refund() {
+    setBusy(true);
+    setError("");
+    try {
+      setOrder(
+        await api<Order>(`orders/${id}/refund-request`, "POST", { reason }),
+      );
+      setReason("");
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  const fullRefund = !!order && order.refundedMinor === order.amountMinor;
   return (
     <div className="account-page">
       <span className="eyebrow">YOUR PURCHASE</span>
       <h1>
-        {order?.status === "paid"
-          ? "Payment verified."
-          : "Your case, one step closer."}
+        {fullRefund
+          ? "Refund confirmed."
+          : order?.status === "paid"
+            ? "Payment verified."
+            : "Your case, one step closer."}
       </h1>
       {error && (
         <p role="alert" className="room-message">
@@ -103,7 +123,7 @@ export function OrderView({ id }: { id: string }) {
               currency: order.currency,
             }).format(order.amountMinor / 100)}
           </p>
-          <p>Status: {order.status}.</p>
+          <p>Status: {fullRefund ? "refunded" : order.status}.</p>
           {order.environment !== "live" && (
             <p className="room-message">Sandbox order · Test payments only.</p>
           )}
@@ -115,6 +135,45 @@ export function OrderView({ id }: { id: string }) {
                 <PremiumPlay caseId={order.caseId} mode={order.mode} />
               )}
               <Link href="/library">My cases</Link>
+              {order.refundedMinor > 0 && (
+                <p>
+                  Confirmed refunds:{" "}
+                  {new Intl.NumberFormat("en-NG", {
+                    style: "currency",
+                    currency: order.currency,
+                  }).format(order.refundedMinor / 100)}
+                </p>
+              )}
+              {order.refundRequested ? (
+                <p role="status">Your refund request is awaiting review.</p>
+              ) : (
+                order.environment === "test" &&
+                !fullRefund && (
+                  <form
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      void refund();
+                    }}
+                  >
+                    <label>
+                      Reason for refund request
+                      <textarea
+                        value={reason}
+                        onChange={(event) => setReason(event.target.value)}
+                        required
+                        maxLength={500}
+                      />
+                    </label>
+                    <button
+                      type="submit"
+                      className="button outline"
+                      disabled={busy || !reason.trim()}
+                    >
+                      Request a refund
+                    </button>
+                  </form>
+                )
+              )}
             </>
           ) : (
             <>

@@ -3,7 +3,13 @@ import type { Sql, Database } from "../db/types";
 import { assert } from "./errors";
 import { hash, limit } from "./identity";
 import { newSecret, seal, unseal, matchingCounter } from "../security/totp";
-export type StaffRole = "content_editor" | "content_publisher" | "admin";
+export const staffRoles = [
+  "content_editor",
+  "content_publisher",
+  "finance",
+  "admin",
+] as const;
+export type StaffRole = (typeof staffRoles)[number];
 export async function audit(
   db: Sql,
   actor: string,
@@ -36,12 +42,16 @@ export async function requireStaff(
   actor: string,
   playerToken: string,
   staffToken: string | undefined,
-  role: StaffRole | "read",
+  role: StaffRole | "read" | "editorial",
 ) {
   const member = await staffMember(db, actor);
   assert(
     role === "read" ||
-      member.roles.includes(role) ||
+      (role === "editorial"
+        ? member.roles.some(
+            (item) => item === "content_editor" || item === "content_publisher",
+          )
+        : member.roles.includes(role)) ||
       member.roles.includes("admin"),
     403,
     "ROLE_DENIED",

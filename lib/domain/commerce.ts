@@ -87,7 +87,7 @@ export async function createOrder(
     assert(
       !(
         await tx.query(
-          "SELECT 1 FROM app_private.entitlements WHERE owner_id=$1 AND product_id=$2 AND state='active'",
+          "SELECT 1 FROM app_private.entitlements WHERE owner_id=$1 AND product_id=$2 AND state<>'revoked'",
           [actor, input.productId],
         )
       ).rows.length,
@@ -158,8 +158,13 @@ export async function readOrder(db: Sql, actor: string, id: string) {
       environment: CommerceEnvironment;
       expiresAt: string;
       paidAt: string | null;
+      refundedMinor: number;
+      refundRequested: boolean;
     }>(
-      `SELECT o.id,o.product_id AS "productId",p.case_key AS "caseId",p.mode,o.amount_minor::integer AS "amountMinor",o.currency,CASE WHEN o.status='pending' AND o.expires_at<=now() THEN 'expired' ELSE o.status END AS status,o.environment,o.expires_at AS "expiresAt",o.paid_at AS "paidAt" FROM app_private.orders o JOIN app_private.products p ON p.id=o.product_id WHERE o.id=$1 AND o.buyer_id=$2`,
+      `SELECT o.id,o.product_id AS "productId",p.case_key AS "caseId",p.mode,o.amount_minor::integer AS "amountMinor",o.currency,CASE WHEN o.status='pending' AND o.expires_at<=now() THEN 'expired' ELSE o.status END AS status,o.environment,o.expires_at AS "expiresAt",o.paid_at AS "paidAt",
+       COALESCE((SELECT sum(amount_minor) FROM app_private.refunds WHERE order_id=o.id),0)::integer AS "refundedMinor",
+       EXISTS(SELECT 1 FROM app_private.refund_requests WHERE order_id=o.id AND closed_at IS NULL) AS "refundRequested"
+       FROM app_private.orders o JOIN app_private.products p ON p.id=o.product_id WHERE o.id=$1 AND o.buyer_id=$2`,
       [id, actor],
     )
   ).rows[0];
@@ -291,15 +296,11 @@ export async function fulfilPayment(db: Database, payment: VerifiedPayment) {
       "UPDATE app_private.orders SET status='paid',paid_at=now() WHERE id=$1",
       [attempt.order_id],
     );
-    const alreadyOwned =
-      (
-        await tx.query(
-          "SELECT 1 FROM app_private.entitlements WHERE owner_id=$1 AND product_id=$2",
-          [order.buyer_id, order.product_id],
-        )
-      ).rows.length > 0;
-    await tx.query(
-      "INSERT INTO app_private.entitlements(id,owner_id,product_id,origin_order_id) VALUES($1,$2,$3,$4) ON CONFLICT(owner_id,product_id) DO NOTHING",
+    const grant = await tx.query(
+      `INSERT INTO app_private.entitlements AS e(id,owner_id,product_id,origin_order_id)
+       VALUES($1,$2,$3,$4) ON CONFLICT(owner_id,product_id) DO UPDATE
+       SET origin_order_id=EXCLUDED.origin_order_id,state='active',granted_at=now()
+       WHERE e.state='revoked' RETURNING id`,
       [randomUUID(), order.buyer_id, order.product_id, attempt.order_id],
     );
     await tx.query(
@@ -310,7 +311,7 @@ export async function fulfilPayment(db: Database, payment: VerifiedPayment) {
       "INSERT INTO app_private.payment_receipts(id,order_id) SELECT $1,$2 WHERE $3<>'development' ON CONFLICT(order_id) DO NOTHING",
       [randomUUID(), attempt.order_id, order.environment],
     );
-    if (alreadyOwned)
+    if (!grant.rows.length)
       await tx.query(
         "INSERT INTO app_private.audit_events(id,actor_id,action,entity_id) VALUES($1,$2,'duplicate_purchase_review',$3)",
         [randomUUID(), order.buyer_id, attempt.order_id],
