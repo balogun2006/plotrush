@@ -63,6 +63,11 @@ test("independent staff draft, review, publish and withdraw a version without ex
   page,
 }, info) => {
   test.setTimeout(120000);
+  await page
+    .context()
+    .setExtraHTTPHeaders({
+      "X-Forwarded-For": `daily-guest-${info.project.name}`,
+    });
   const denied = await page.request.get("/api/v1/admin/templates");
   expect(denied.status()).toBe(401);
   expect(JSON.stringify(await denied.json())).not.toContain("explanation");
@@ -190,6 +195,27 @@ test("independent staff draft, review, publish and withdraw a version without ex
     await expect(
       publisher.getByText("UTC calendar slot saved.", { exact: true }),
     ).toBeVisible();
+    await page.goto("/");
+    const daily = page.getByRole("region", { name: "Daily mystery" });
+    await expect(
+      daily.getByRole("heading", { name: content.title }),
+    ).toBeVisible();
+    await daily.getByRole("button", { name: "Play today’s case" }).click();
+    await expect(page).toHaveURL(/\/play\//);
+    await expect(
+      page.getByText(/DAILY MYSTERY \/ \d{4}-\d{2}-\d{2}/),
+    ).toBeVisible();
+    await page.getByRole("tab", { name: "Make a call" }).click();
+    await page.getByRole("radio", { name: "Tunde", exact: true }).check();
+    await page.getByRole("radio", { name: /The fridge opened during/ }).check();
+    await page.getByRole("button", { name: "Submit my verdict" }).click();
+    await page.getByRole("button", { name: "Confirm my verdict" }).click();
+    await expect(page.getByText(/Daily result for/)).toBeVisible();
+    const dailyAttempt = page.url();
+    await page.goto("/");
+    await expect(daily.getByText(/1 day in your streak/)).toBeVisible();
+    await daily.getByRole("link", { name: "View today’s result" }).click();
+    await expect(page).toHaveURL(dailyAttempt);
     if (info.project.name === "chromium") {
       await publisher.evaluate(() => window.scrollTo(0, 0));
       await publisher.screenshot({
@@ -208,6 +234,12 @@ test("independent staff draft, review, publish and withdraw a version without ex
         "New starts stopped. Existing games retain their version.",
         { exact: true },
       ),
+    ).toBeVisible();
+    await editor.goto("/");
+    await expect(
+      editor
+        .getByRole("region", { name: "Daily mystery" })
+        .getByText("FROM THE ARCHIVE"),
     ).toBeVisible();
     const after = await call(editor, "/api/v1/solo/attempts/" + attempt.id);
     expect(after.status()).toBe(200);

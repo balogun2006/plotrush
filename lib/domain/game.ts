@@ -4,6 +4,7 @@ import { Case, caseSchema, card } from "./content";
 import { assert } from "./errors";
 import { playableVersion, requirePremium, type PremiumPolicy } from "./premium";
 import { lockPrincipal } from "./identity";
+import { dailyClock, scheduledCase } from "./daily";
 type Attempt = {
   id: string;
   principal_id: string;
@@ -12,6 +13,7 @@ type Attempt = {
   round: number;
   state_version: number;
   notes: string;
+  daily_day: string | null;
   hints: string[];
   result: Result | null;
   started_at: string;
@@ -34,17 +36,41 @@ export async function catalogue(db: Sql) {
 export async function start(
   db: Database,
   actor: string,
-  key: string,
+  key: string | { day: string; versionId: string },
   premium?: PremiumPolicy,
 ) {
   return db.transaction(async (tx) => {
     await lockPrincipal(tx, actor);
-    // Lock the actor so duplicate starts serialize even before the attempt row exists.
-    await tx.query(
-      "SELECT id FROM app_private.principals WHERE id=$1 FOR UPDATE",
-      [actor],
-    );
-    const version = await playableVersion(tx, key);
+    const daily = typeof key === "string" ? null : key;
+    let dailyDay: string | null = null;
+    if (daily) {
+      const { day } = await dailyClock(tx);
+      assert(
+        daily.day === day,
+        409,
+        "DAILY_CHANGED",
+        "The UTC day changed. Refresh today’s case.",
+      );
+      const prior = await tx.query<{ id: string; state: Attempt["state"] }>(
+        "SELECT id,state FROM app_private.attempts WHERE principal_id=$1 AND daily_day=$2",
+        [actor, day],
+      );
+      if (prior.rows[0] && prior.rows[0].state !== "abandoned")
+        return snapshot(await owned(tx, actor, prior.rows[0].id));
+      // An abandoned ranked attempt reserves the date. A replay can still be played.
+      if (!prior.rows[0]) dailyDay = day;
+    }
+    const version =
+      typeof key === "string"
+        ? await playableVersion(tx, key)
+        : await scheduledCase(tx, key.day);
+    if (daily)
+      assert(
+        version?.id === daily.versionId,
+        409,
+        "DAILY_CHANGED",
+        "Today’s case changed. Refresh the daily card.",
+      );
     assert(version, 404, "NOT_FOUND", "Case unavailable.");
     const c = caseSchema.parse(version.content);
     assert(
@@ -55,16 +81,22 @@ export async function start(
     );
     if (c.access === "paid")
       await requirePremium(tx, actor, version, "solo", premium);
-    const existing = await tx.query<{ id: string }>(
-      "SELECT id FROM app_private.attempts WHERE principal_id=$1 AND case_version_id=$2 AND state='investigating'",
+    const existing = await tx.query<{ id: string; daily_day: string | null }>(
+      "SELECT id,daily_day FROM app_private.attempts WHERE principal_id=$1 AND case_version_id=$2 AND state='investigating'",
       [actor, version.id],
     );
     let id = existing.rows[0]?.id;
+    if (id && dailyDay && !existing.rows[0].daily_day) {
+      await tx.query(
+        "UPDATE app_private.attempts SET daily_day=$2 WHERE id=$1",
+        [id, dailyDay],
+      );
+    }
     if (!id) {
       id = randomUUID();
       await tx.query(
-        "INSERT INTO app_private.attempts(id,principal_id,case_version_id) VALUES($1,$2,$3)",
-        [id, actor, version.id],
+        "INSERT INTO app_private.attempts(id,principal_id,case_version_id,daily_day) VALUES($1,$2,$3,$4)",
+        [id, actor, version.id, dailyDay],
       );
     }
     return snapshot(await owned(tx, actor, id), c);
@@ -72,7 +104,7 @@ export async function start(
 }
 async function owned(tx: Sql, actor: string, id: string) {
   const r = await tx.query<Attempt>(
-    "SELECT a.*,v.content FROM app_private.attempts a JOIN app_private.case_versions v ON v.id=a.case_version_id WHERE a.id=$1 AND a.principal_id=$2 FOR UPDATE OF a",
+    "SELECT a.*,a.daily_day::text AS daily_day,v.content FROM app_private.attempts a JOIN app_private.case_versions v ON v.id=a.case_version_id WHERE a.id=$1 AND a.principal_id=$2 FOR UPDATE OF a",
     [id, actor],
   );
   assert(
@@ -88,6 +120,7 @@ function snapshot(a: Attempt, c: Case = caseSchema.parse(a.content)) {
     id: a.id,
     caseId: c.key,
     access: c.access,
+    dailyDay: a.daily_day,
     title: c.title,
     briefing: c.briefing,
     state: a.state,

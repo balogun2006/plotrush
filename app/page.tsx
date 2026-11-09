@@ -9,6 +9,7 @@ import {
   Layers3,
 } from "lucide-react";
 import { StartButton } from "@/components/start-button";
+import { DailyCase } from "@/components/daily-case";
 import { Recommendations } from "@/components/recommendations";
 export default function Home() {
   return (
@@ -141,6 +142,7 @@ export default function Home() {
           </div>
         </div>
       </section>
+      <DailyCase />
       <Recommendations />
       <section className="how-section">
         <div>

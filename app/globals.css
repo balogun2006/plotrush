@@ -2803,3 +2803,15 @@ button:disabled {
     min-height: 360px;
   }
 }
+
+.daily-card {
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+.daily-card h2 {
+  font-size: 24px;
+  margin: 4px 0 6px;
+}
+.daily-card .text-link {
+  margin-top: 8px;
+}

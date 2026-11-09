@@ -13,6 +13,8 @@ import {
   saveInterests,
 } from "../domain/identity";
 import { catalogue, start, read, mutate, library } from "../domain/game";
+import { dailyOverview } from "../domain/daily";
+import { dailyStartInput } from "../contracts/daily";
 import { filterCases, parseFilters, facets } from "../domain/catalogue";
 import { themes } from "../domain/content";
 import {
@@ -179,6 +181,8 @@ export async function handle(req: NextRequest, path: string[]) {
           ? "development"
           : checkoutConfig().environment,
       });
+    if (req.method === "GET" && route === "daily")
+      return json(await dailyOverview(db, actor));
     if (req.method === "GET" && route === "cases") {
       const f = parseFilters(req.nextUrl.searchParams);
       const all = (await catalogue(db)).filter(
@@ -265,7 +269,8 @@ export async function handle(req: NextRequest, path: string[]) {
         "Email sign-in is not configured yet. Free play is available.",
       );
     if (
-      (req.method === "POST" && route === "solo/attempts") ||
+      (req.method === "POST" &&
+        ["solo/attempts", "daily/start"].includes(route)) ||
       (req.method === "PUT" && route === "interests") ||
       (req.method === "POST" &&
         ["rooms", "rooms/join", "auth/request-code"].includes(route))
@@ -527,6 +532,11 @@ export async function handle(req: NextRequest, path: string[]) {
           ),
         );
       }
+    }
+    if (req.method === "POST" && route === "daily/start") {
+      const b = dailyStartInput.parse(await body(req));
+      const attempt = await start(db, actor, b);
+      return json({ id: attempt.id }, 201);
     }
     if (req.method === "POST" && route === "solo/attempts") {
       const b = z

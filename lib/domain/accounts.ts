@@ -133,10 +133,23 @@ async function merge(tx: Sql, source: string, target: string) {
       "Finish or leave your active group rooms before combining accounts.",
     );
   }
-  // Preserve both histories. A duplicate active source attempt becomes a saved
-  // abandoned attempt rather than overwriting destination notes or first result.
+  // Keep completed daily credit when two identities played the same UTC slot.
+  // Both results remain in the library, even when only one retains daily credit.
   await tx.query(
-    "UPDATE app_private.attempts s SET state='abandoned' WHERE s.principal_id=$1 AND s.state='investigating' AND EXISTS(SELECT 1 FROM app_private.attempts t WHERE t.principal_id=$2 AND t.case_version_id=s.case_version_id AND t.state='investigating')",
+    `UPDATE app_private.attempts a SET daily_day=NULL
+     FROM app_private.attempts s,app_private.attempts t
+     WHERE s.principal_id=$1 AND t.principal_id=$2 AND s.daily_day=t.daily_day
+       AND a.id=CASE WHEN s.state='revealed' AND t.state<>'revealed' THEN t.id ELSE s.id END`,
+    [source, target],
+  );
+  // Prefer the ranked active attempt. Otherwise keep the destination's notes
+  // active and archive the duplicate without deleting its progress.
+  await tx.query(
+    `UPDATE app_private.attempts a SET state='abandoned'
+     FROM app_private.attempts s,app_private.attempts t
+     WHERE s.principal_id=$1 AND t.principal_id=$2 AND s.case_version_id=t.case_version_id
+       AND s.state='investigating' AND t.state='investigating'
+       AND a.id=CASE WHEN s.daily_day IS NOT NULL AND t.daily_day IS NULL THEN t.id ELSE s.id END`,
     [source, target],
   );
   await tx.query(

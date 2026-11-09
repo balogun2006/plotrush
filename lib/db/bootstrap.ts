@@ -11,6 +11,7 @@ export async function migrate(db: Database) {
       "003_accounts_commerce.sql",
       "004_paystack.sql",
       "005_editorial.sql",
+      "006_daily.sql",
     ])
       await tx.query(await readFile("db/migrations/" + file, "utf8"));
   });
