@@ -1,3 +1,4 @@
+import { disputeId } from "../contracts/disputes";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import { AppError, assert } from "../domain/errors";
@@ -88,6 +89,30 @@ export type VerifiedRefund = {
   currency: string;
   status: z.infer<typeof refundRecord>["status"];
 };
+const disputeRecord = z.object({
+  id: id.pipe(disputeId),
+  domain: z.enum(["test", "live"]),
+  status: z.string().regex(/^[a-z][a-z-]{0,59}$/),
+  resolution: z
+    .string()
+    .regex(/^[a-z][a-z-]{0,59}$/)
+    .nullable(),
+  refund_amount: z.number().int().nonnegative().max(100000000).nullable(),
+  currency: z
+    .string()
+    .regex(/^[A-Z]{3}$/)
+    .nullable(),
+  updatedAt: z.iso.datetime({ offset: true }),
+  transaction: z.object({
+    id,
+    domain: z.enum(["test", "live"]),
+    reference: z.string().min(1).max(100),
+    amount: z.number().int().positive().max(100000000),
+    currency: z.string().regex(/^[A-Z]{3}$/),
+  }),
+});
+export type VerifiedDispute = z.infer<typeof disputeRecord>;
+
 const verified = z.object({
   status: z.literal(true),
   data: z.object({
@@ -174,6 +199,19 @@ export class PaystackClient {
         "Paystack could not complete this request. Check payment status before retrying.",
       );
     return boundedResponse(response);
+  }
+  async fetchDispute(providerId: string): Promise<VerifiedDispute> {
+    const key = disputeId.parse(providerId);
+    const result = z
+      .object({ status: z.literal(true), data: disputeRecord })
+      .safeParse(await this.call("/dispute/" + key));
+    assert(
+      result.success,
+      503,
+      "PROVIDER_UNAVAILABLE",
+      "Paystack returned an invalid dispute record.",
+    );
+    return result.data.data;
   }
   async fetchRefund(providerId: string): Promise<VerifiedRefund> {
     assert(
