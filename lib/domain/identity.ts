@@ -7,7 +7,7 @@ export async function identity(db: Sql, token?: string) {
   return (
     (
       await db.query<{ principal_id: string }>(
-        "SELECT principal_id FROM app_private.sessions WHERE token_hash=$1 AND expires_at>now()",
+        "SELECT s.principal_id FROM app_private.sessions s JOIN app_private.principals p ON p.id=s.principal_id WHERE s.token_hash=$1 AND s.expires_at>now() AND p.merged_into IS NULL",
         [hash(token)],
       )
     ).rows[0]?.principal_id ?? null
@@ -59,6 +59,7 @@ export async function saveInterests(
   expectedVersion: number,
 ) {
   return db.transaction(async (tx) => {
+    await lockPrincipal(tx, actor);
     await tx.query(
       "SELECT id FROM app_private.principals WHERE id=$1 FOR UPDATE",
       [actor],
@@ -76,4 +77,19 @@ export async function saveInterests(
     );
     return interests(tx, actor);
   });
+}
+
+// Auth merges fence gameplay mutations through the principal row. An in-flight
+// request authenticated before a merge must not create orphaned guest progress.
+export async function lockPrincipal(db: Sql, actor: string) {
+  const active = await db.query(
+    "SELECT id FROM app_private.principals WHERE id=$1 AND merged_into IS NULL FOR UPDATE",
+    [actor],
+  );
+  assert(
+    active.rows.length,
+    401,
+    "SESSION_REQUIRED",
+    "Sign in again to continue.",
+  );
 }

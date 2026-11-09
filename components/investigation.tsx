@@ -84,6 +84,23 @@ export function Investigation({ id }: { id: string }) {
         </div>
       </div>
     );
+  if (a.state === "abandoned")
+    return (
+      <div className="page-wrap">
+        <h1>Saved investigation</h1>
+        <p>
+          This duplicate investigation was archived when you combined accounts.
+          Your other active investigation can continue from My cases.
+        </p>
+        <h2>Your saved notes</h2>
+        <p style={{ whiteSpace: "pre-wrap" }}>
+          {a.notes || "No notes were saved."}
+        </p>
+        <Link className="button lime" href="/library">
+          My cases
+        </Link>
+      </div>
+    );
   const clues = a.rounds.flatMap((r) => r.clues),
     readCount = clues.filter((c) => opened.includes(c.id)).length;
   if (a.result)

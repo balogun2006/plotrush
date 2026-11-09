@@ -64,13 +64,19 @@ export default function Library() {
               </span>
               <div>
                 <span className="eyebrow">
-                  {a.state === "revealed" ? "CASE CLOSED" : "IN PROGRESS"}
+                  {a.state === "revealed"
+                    ? "CASE CLOSED"
+                    : a.state === "abandoned"
+                      ? "SAVED AT ACCOUNT MERGE"
+                      : "IN PROGRESS"}
                 </span>
                 <h2>{a.title}</h2>
                 <p>
                   {a.result
                     ? `${a.result.score}/100 · View your reveal`
-                    : "Continue investigating"}
+                    : a.state === "abandoned"
+                      ? "View saved notes"
+                      : "Continue investigating"}
                 </p>
               </div>
               <ArrowUpRight size={22} />
@@ -79,8 +85,8 @@ export default function Library() {
         </div>
       )}
       <p className="save-note">
-        Saved for this browser for the guest session’s lifetime. Account
-        recovery and cross-device sync are in development.
+        Guest progress stays with this browser. Email verification, when
+        available, saves it to your account.
       </p>
     </div>
   );

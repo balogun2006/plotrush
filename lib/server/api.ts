@@ -23,6 +23,27 @@ import {
   displayName,
   inviteCode,
 } from "../domain/rooms";
+import { account, requestCode, verifyCode, signOut } from "../domain/accounts";
+import {
+  emailConfig,
+  authSecret,
+  mailer,
+  localAdaptersAllowed,
+} from "../providers/email";
+import {
+  products,
+  orderInput,
+  createOrder,
+  readOrder,
+  preparePayment,
+  fulfilPayment,
+  ownership,
+} from "../domain/commerce";
+import { developmentPayment } from "../providers/payments";
+import {
+  requestCodeInput,
+  verifyCodeInput,
+} from "../contracts/account-commerce";
 const version = z.number().int().positive();
 const cookie = "plotrush_guest";
 async function body(req: NextRequest) {
@@ -56,6 +77,7 @@ async function body(req: NextRequest) {
 export async function handle(req: NextRequest, path: string[]) {
   const requestId = randomUUID();
   let token: string | undefined;
+  let clearSession = false;
   const json = (data: unknown, status = 200) => {
     const response = NextResponse.json(
       { data, meta: { requestId, serverTime: new Date().toISOString() } },
@@ -68,6 +90,14 @@ export async function handle(req: NextRequest, path: string[]) {
         sameSite: "lax",
         path: "/",
         maxAge: 30 * 86400,
+      });
+    if (clearSession)
+      response.cookies.set(cookie, "", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: 0,
       });
     return response;
   };
@@ -87,6 +117,16 @@ export async function handle(req: NextRequest, path: string[]) {
     const db = await database();
     let actor = await identity(db, req.cookies.get(cookie)?.value);
     const route = path.join("/");
+    if (req.method === "GET" && route === "auth/config")
+      return json(emailConfig());
+    if (req.method === "GET" && route === "account")
+      return json(actor ? await account(db, actor) : { kind: "guest" });
+    if (req.method === "GET" && route === "products")
+      return json({
+        products: await products(db, localAdaptersAllowed()),
+        development: localAdaptersAllowed(),
+        checkoutAvailable: localAdaptersAllowed(),
+      });
     if (req.method === "GET" && route === "cases") {
       const f = parseFilters(req.nextUrl.searchParams);
       const all = (await catalogue(db)).filter(
@@ -165,10 +205,18 @@ export async function handle(req: NextRequest, path: string[]) {
         completedCount: completed.length,
       });
     }
+    if (req.method === "POST" && route === "auth/request-code")
+      assert(
+        emailConfig().available,
+        503,
+        "AUTH_UNAVAILABLE",
+        "Email sign-in is not configured yet. Free play is available.",
+      );
     if (
       (req.method === "POST" && route === "solo/attempts") ||
       (req.method === "PUT" && route === "interests") ||
-      (req.method === "POST" && ["rooms", "rooms/join"].includes(route))
+      (req.method === "POST" &&
+        ["rooms", "rooms/join", "auth/request-code"].includes(route))
     ) {
       if (!actor) {
         await limit(
@@ -193,6 +241,111 @@ export async function handle(req: NextRequest, path: string[]) {
       "Start a case in this browser to continue.",
     );
     if (write) await limit(db, "principal:" + actor, 60, 60);
+    if (req.method === "POST" && route === "auth/request-code") {
+      assert(
+        emailConfig().available,
+        503,
+        "AUTH_UNAVAILABLE",
+        "Email sign-in is not configured yet. Free play is available.",
+      );
+      const b = requestCodeInput.parse(await body(req));
+      await limit(db, "auth-actor:" + actor, 5, 3600);
+      await limit(db, "auth-email:" + hash(b.email), 5, 3600);
+      let devCode: string | undefined;
+      const result = await requestCode(
+        db,
+        actor,
+        b.email,
+        authSecret(),
+        mailer((code) => {
+          devCode = code;
+        }),
+      );
+      return json({
+        ...result,
+        ...(devCode && emailConfig().development
+          ? { developmentCode: devCode }
+          : {}),
+      });
+    }
+    if (req.method === "POST" && route === "auth/verify-code") {
+      assert(
+        emailConfig().available,
+        503,
+        "AUTH_UNAVAILABLE",
+        "Email sign-in is unavailable.",
+      );
+      const b = verifyCodeInput.parse(await body(req));
+      await limit(db, "verify:" + actor, 20, 600);
+      const result = await verifyCode(
+        db,
+        actor,
+        b.challengeId,
+        b.code,
+        authSecret(),
+        b.confirmMerge,
+      );
+      token = result.token;
+      return json(result.account);
+    }
+    if (req.method === "POST" && route === "auth/sign-out") {
+      z.object({})
+        .strict()
+        .parse(await body(req));
+      await signOut(db, req.cookies.get(cookie)?.value ?? "");
+      clearSession = true;
+      return json({ signedOut: true });
+    }
+    if (req.method === "GET" && route === "me/ownership")
+      return json(await ownership(db, actor));
+    if (req.method === "POST" && route === "orders") {
+      assert(
+        localAdaptersAllowed(),
+        503,
+        "CHECKOUT_DISABLED",
+        "Checkout is not available in this preview.",
+      );
+      return json(
+        await createOrder(
+          db,
+          actor,
+          orderInput.parse(await body(req)),
+          "development",
+          true,
+        ),
+        201,
+      );
+    }
+    if (path[0] === "orders" && path[1]) {
+      const id = z.uuid().parse(path[1]);
+      if (req.method === "GET" && path.length === 2)
+        return json(await readOrder(db, actor, id));
+      if (
+        req.method === "POST" &&
+        path[2] === "development-payment" &&
+        path.length === 3
+      ) {
+        z.object({})
+          .strict()
+          .parse(await body(req));
+        assert(
+          localAdaptersAllowed(),
+          503,
+          "MOCK_DISABLED",
+          "Development payments are not available on this deployment.",
+        );
+        const p = await preparePayment(db, actor, id, "development");
+        await fulfilPayment(
+          db,
+          developmentPayment(
+            p.reference,
+            p.order.amountMinor,
+            p.order.currency,
+          ),
+        );
+        return json(await readOrder(db, actor, id));
+      }
+    }
     if (req.method === "GET" && route === "me/rooms")
       return json(await roomLibrary(db, actor));
     if (req.method === "POST" && route === "rooms") {

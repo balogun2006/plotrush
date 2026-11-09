@@ -5,7 +5,11 @@ import { caseSchema } from "../domain/content";
 export async function migrate(db: Database) {
   await db.transaction(async (tx) => {
     await tx.query("SELECT pg_advisory_xact_lock(442711)");
-    for (const file of ["001_foundation.sql", "002_rooms.sql"])
+    for (const file of [
+      "001_foundation.sql",
+      "002_rooms.sql",
+      "003_accounts_commerce.sql",
+    ])
       await tx.query(await readFile("db/migrations/" + file, "utf8"));
   });
 }
