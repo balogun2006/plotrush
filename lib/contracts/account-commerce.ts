@@ -32,6 +32,8 @@ export const accountSchema = z.union([
 export const orderSchema = z.object({
   id: z.uuid(),
   productId: z.string(),
+  caseId: z.string(),
+  playAvailable: z.boolean().optional(),
   mode: z.enum(["solo", "group"]),
   amountMinor: z.number().int().positive(),
   currency: z.string().length(3),
@@ -40,3 +42,11 @@ export const orderSchema = z.object({
   expiresAt: z.string(),
   paidAt: z.string().nullable(),
 });
+
+export const premiumLibrarySchema = z.array(
+  z.object({
+    caseId: z.string(),
+    mode: z.enum(["solo", "group"]),
+    title: z.string(),
+  }),
+);
