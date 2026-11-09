@@ -66,6 +66,28 @@ const id = z
     z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
   ])
   .transform(String);
+const refundRecord = z.object({
+  id,
+  transaction: z.union([id, z.object({ id }).transform((tx) => tx.id)]),
+  domain: z.enum(["test", "live"]),
+  amount: z.number().int().positive().max(100000000),
+  currency: z.string().regex(/^[A-Z]{3}$/),
+  status: z.enum([
+    "pending",
+    "processing",
+    "needs-attention",
+    "failed",
+    "processed",
+  ]),
+});
+export type VerifiedRefund = {
+  id: string;
+  transactionId: string;
+  environment: "test" | "live";
+  amountMinor: number;
+  currency: string;
+  status: z.infer<typeof refundRecord>["status"];
+};
 const verified = z.object({
   status: z.literal(true),
   data: z.object({
@@ -107,7 +129,10 @@ async function boundedResponse(response: Response) {
     return JSON.parse(
       Buffer.concat(chunks)
         .toString("utf8")
-        .replace(/("id"\s*:\s*)(\d{16,})(?=\s*[,}])/g, '$1"$2"'),
+        .replace(
+          /("(?:id|transaction)"\s*:\s*)(\d{16,})(?=\s*[,}])/g,
+          '$1"$2"',
+        ),
     );
   } catch {
     throw new AppError(
@@ -149,6 +174,32 @@ export class PaystackClient {
         "Paystack could not complete this request. Check payment status before retrying.",
       );
     return boundedResponse(response);
+  }
+  async fetchRefund(providerId: string): Promise<VerifiedRefund> {
+    assert(
+      /^[1-9][0-9]{0,19}$/.test(providerId),
+      400,
+      "REFUND_ID_INVALID",
+      "Use a numeric Paystack refund ID.",
+    );
+    const result = z
+      .object({ status: z.literal(true), data: refundRecord })
+      .safeParse(await this.call("/refund/" + providerId));
+    assert(
+      result.success,
+      503,
+      "PROVIDER_UNAVAILABLE",
+      "Paystack returned an invalid refund record.",
+    );
+    const r = result.data.data;
+    return {
+      id: r.id,
+      transactionId: r.transaction,
+      environment: r.domain,
+      amountMinor: r.amount,
+      currency: r.currency,
+      status: r.status,
+    };
   }
   async initialize(input: {
     reference: string;
