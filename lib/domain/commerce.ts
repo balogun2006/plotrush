@@ -160,10 +160,12 @@ export async function readOrder(db: Sql, actor: string, id: string) {
       paidAt: string | null;
       refundedMinor: number;
       refundRequested: boolean;
+      disputeHold: boolean;
     }>(
       `SELECT o.id,o.product_id AS "productId",p.case_key AS "caseId",p.mode,o.amount_minor::integer AS "amountMinor",o.currency,CASE WHEN o.status='pending' AND o.expires_at<=now() THEN 'expired' ELSE o.status END AS status,o.environment,o.expires_at AS "expiresAt",o.paid_at AS "paidAt",
        COALESCE((SELECT sum(amount_minor) FROM app_private.refunds WHERE order_id=o.id),0)::integer AS "refundedMinor",
-       EXISTS(SELECT 1 FROM app_private.refund_requests WHERE order_id=o.id AND closed_at IS NULL) AS "refundRequested"
+       EXISTS(SELECT 1 FROM app_private.refund_requests WHERE order_id=o.id AND closed_at IS NULL) AS "refundRequested",
+       EXISTS(SELECT 1 FROM app_private.payment_disputes WHERE order_id=o.id AND holds_access) AS "disputeHold"
        FROM app_private.orders o JOIN app_private.products p ON p.id=o.product_id WHERE o.id=$1 AND o.buyer_id=$2`,
       [id, actor],
     )
@@ -299,7 +301,7 @@ export async function fulfilPayment(db: Database, payment: VerifiedPayment) {
     const grant = await tx.query(
       `INSERT INTO app_private.entitlements AS e(id,owner_id,product_id,origin_order_id)
        VALUES($1,$2,$3,$4) ON CONFLICT(owner_id,product_id) DO UPDATE
-       SET origin_order_id=EXCLUDED.origin_order_id,state='active',granted_at=now()
+       SET origin_order_id=EXCLUDED.origin_order_id,state='active',dispute_hold=false,granted_at=now()
        WHERE e.state='revoked' RETURNING id`,
       [randomUUID(), order.buyer_id, order.product_id, attempt.order_id],
     );
