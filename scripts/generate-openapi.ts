@@ -7,6 +7,7 @@ import {
   scheduleInput,
   unpublishInput,
 } from "../lib/contracts/editorial";
+import { dailySchema, dailyStartInput } from "../lib/contracts/daily";
 import { readFile, writeFile } from "node:fs/promises";
 import { z } from "zod";
 import {
@@ -152,7 +153,7 @@ const doc = {
     title: "PlotRush account and commerce foundation",
     version: "0.2.0",
     description:
-      "Generated from runtime Zod contracts. Scope: newly implemented account/order routes; gameplay paths remain to be added. Staff editorial routes require protected roles and a fresh MFA cookie. Payment simulation is local-only. Paystack test checkout, verification and signed webhook acknowledgement are implemented; live billing remains gated.",
+      "Generated from runtime Zod contracts. Scope: account, order, daily and staff editorial routes. Staff editorial routes require protected roles and a fresh MFA cookie. Payment simulation is local-only. Paystack test checkout, verification and signed webhook acknowledgement are implemented; live billing remains gated.",
   },
   servers: [{ url: "/api/v1" }],
   components: {
@@ -163,6 +164,20 @@ const doc = {
   },
   paths: {
     ...staffPaths,
+    "/daily": { get: { responses: { "200": response(dailySchema) } } },
+    "/daily/start": {
+      post: {
+        ...post(dailyStartInput),
+        security: [],
+        responses: {
+          "201": response(z.object({ id: z.uuid() })),
+          "400": { description: "Invalid UTC date or version identifier" },
+          "403": { description: "Origin denied" },
+          "409": { description: "UTC date or scheduled case changed" },
+          "429": { description: "Too many requests" },
+        },
+      },
+    },
     "/api/webhooks/paystack": {
       servers: [{ url: "/" }],
       post: {
