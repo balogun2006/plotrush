@@ -7,6 +7,13 @@ import { identity, limit, hash } from "../domain/identity";
 import { AppError, assert } from "../domain/errors";
 import { authSecret } from "../providers/email";
 import { staffMember, enroll, unlock, requireStaff } from "../domain/staff";
+import { closeRefundInput, reconcileRefundInput } from "../contracts/refunds";
+import {
+  closeRefundRequest,
+  financeOrders,
+  reconcileRefund,
+} from "../domain/refunds";
+import { paystackConfig, PaystackClient } from "../providers/paystack";
 import * as editorial from "../domain/editorial";
 import {
   draftInput,
@@ -128,6 +135,50 @@ export async function handleEditorial(req: NextRequest, path: string[]) {
         maxAge: 0,
       });
       return res;
+    }
+    if (route === "finance/orders" && req.method === "GET") {
+      const search = z
+        .string()
+        .trim()
+        .max(100)
+        .parse(req.nextUrl.searchParams.get("search") ?? "");
+      return reply(await financeOrders(db, ctx, search));
+    }
+    if (
+      path[0] === "finance" &&
+      path[1] === "orders" &&
+      path.length === 4 &&
+      req.method === "POST"
+    ) {
+      const orderId = z.uuid().parse(path[2]);
+      if (path[3] === "reconcile-refund") {
+        await requireStaff(db, actor, playerToken, ctx.staffToken, "finance");
+        const { providerId } = reconcileRefundInput.parse(await jsonBody(req));
+        const config = paystackConfig();
+        assert(
+          config?.environment === "test",
+          503,
+          "PAYMENT_CONFIG_REQUIRED",
+          "Paystack test credentials are required.",
+        );
+        return reply(
+          await reconcileRefund(
+            db,
+            ctx,
+            orderId,
+            providerId,
+            new PaystackClient(config),
+          ),
+        );
+      }
+      if (path[3] === "close-refund-request") {
+        const { requestId, reason } = closeRefundInput.parse(
+          await jsonBody(req),
+        );
+        return reply(
+          await closeRefundRequest(db, ctx, orderId, requestId, reason),
+        );
+      }
     }
     if (route === "cases" && req.method === "GET")
       return reply(await editorial.listEditorial(db, ctx));

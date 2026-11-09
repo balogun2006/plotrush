@@ -13,6 +13,8 @@ import {
   saveInterests,
 } from "../domain/identity";
 import { catalogue, start, read, mutate, library } from "../domain/game";
+import { requestRefund } from "../domain/refunds";
+import { refundRequestInput } from "../contracts/refunds";
 import { dailyOverview } from "../domain/daily";
 import { dailyStartInput } from "../contracts/daily";
 import { filterCases, parseFilters, facets } from "../domain/catalogue";
@@ -79,6 +81,7 @@ async function orderForPlay(
   const playAvailable =
     !!premium &&
     order.status === "paid" &&
+    order.refundedMinor < order.amountMinor &&
     order.environment === premium.environment &&
     supportsPremium(
       await playableVersion(db, order.caseId),
@@ -389,6 +392,22 @@ export async function handle(req: NextRequest, path: string[]) {
             premium,
           ),
         );
+      if (
+        req.method === "POST" &&
+        path.length === 3 &&
+        path[2] === "refund-request"
+      ) {
+        const { reason } = refundRequestInput.parse(await body(req));
+        await requestRefund(db, actor, id, reason);
+        return json(
+          await orderForPlay(
+            db,
+            actor,
+            await readOrder(db, actor, id),
+            premium,
+          ),
+        );
+      }
       if (
         req.method === "POST" &&
         path.length === 3 &&
