@@ -50,6 +50,42 @@ import {
   PaystackClient,
 } from "../providers/paystack";
 import { checkout, verifyOrder } from "../domain/payment-operations";
+import {
+  ownsPremium,
+  playableVersion,
+  premiumLibrary,
+  supportsPremium,
+  type PremiumPolicy,
+} from "../domain/premium";
+import type { Sql } from "../db/types";
+function premiumPolicy(): PremiumPolicy | undefined {
+  if (process.env.FEATURE_PREMIUM_PLAY !== "true") return undefined;
+  if (localAdaptersAllowed())
+    return { environment: "development", allowFixture: true };
+  if ((process.env.PAYSTACK_ENVIRONMENT ?? "test") === "test")
+    return {
+      environment: "test",
+      allowFixture: process.env.FEATURE_SANDBOX_CATALOGUE === "true",
+    };
+}
+async function orderForPlay(
+  db: Sql,
+  actor: string,
+  order: Awaited<ReturnType<typeof readOrder>>,
+  premium: PremiumPolicy | undefined,
+) {
+  const playAvailable =
+    !!premium &&
+    order.status === "paid" &&
+    order.environment === premium.environment &&
+    supportsPremium(
+      await playableVersion(db, order.caseId),
+      order.mode,
+      premium,
+    ) &&
+    (await ownsPremium(db, actor, order.caseId, order.mode, premium));
+  return { ...order, playAvailable };
+}
 const version = z.number().int().positive();
 const cookie = "plotrush_guest";
 async function body(req: NextRequest) {
@@ -123,6 +159,7 @@ export async function handle(req: NextRequest, path: string[]) {
     const db = await database();
     let actor = await identity(db, req.cookies.get(cookie)?.value);
     const route = path.join("/");
+    const premium = premiumPolicy();
     if (req.method === "GET" && route === "auth/config")
       return json(emailConfig());
     if (req.method === "GET" && route === "account")
@@ -133,9 +170,11 @@ export async function handle(req: NextRequest, path: string[]) {
           db,
           localAdaptersAllowed(),
           checkoutConfig().sandboxCatalogue,
+          premium,
         ),
         development: localAdaptersAllowed(),
-        checkoutAvailable: localAdaptersAllowed() || checkoutConfig().available,
+        checkoutAvailable:
+          localAdaptersAllowed() || (!!premium && checkoutConfig().available),
         paymentEnvironment: localAdaptersAllowed()
           ? "development"
           : checkoutConfig().environment,
@@ -309,12 +348,14 @@ export async function handle(req: NextRequest, path: string[]) {
       clearSession = true;
       return json({ signedOut: true });
     }
+    if (req.method === "GET" && route === "me/premium")
+      return json(await premiumLibrary(db, actor, premium));
     if (req.method === "GET" && route === "me/ownership")
       return json(await ownership(db, actor));
     if (req.method === "POST" && route === "orders") {
       const config = checkoutConfig();
       assert(
-        localAdaptersAllowed() || config.available,
+        localAdaptersAllowed() || (!!premium && config.available),
         503,
         "CHECKOUT_DISABLED",
         "Checkout is not available in this preview.",
@@ -327,6 +368,7 @@ export async function handle(req: NextRequest, path: string[]) {
           localAdaptersAllowed() ? "development" : "test",
           localAdaptersAllowed(),
           config.sandboxCatalogue,
+          premium,
         ),
         201,
       );
@@ -334,7 +376,14 @@ export async function handle(req: NextRequest, path: string[]) {
     if (path[0] === "orders" && path[1]) {
       const id = z.uuid().parse(path[1]);
       if (req.method === "GET" && path.length === 2)
-        return json(await readOrder(db, actor, id));
+        return json(
+          await orderForPlay(
+            db,
+            actor,
+            await readOrder(db, actor, id),
+            premium,
+          ),
+        );
       if (
         req.method === "POST" &&
         path.length === 3 &&
@@ -354,14 +403,33 @@ export async function handle(req: NextRequest, path: string[]) {
         await limit(db, "payment-verify:" + actor, 10, 60);
         if (path[2] === "checkout") {
           assert(
-            checkoutConfig().available,
+            premium?.environment === "test" && checkoutConfig().available,
             503,
             "CHECKOUT_DISABLED",
             "New checkout is temporarily unavailable.",
           );
+          const order = await readOrder(db, actor, id);
+          assert(
+            order.environment === "test" &&
+              supportsPremium(
+                await playableVersion(db, order.caseId),
+                order.mode,
+                premium,
+              ),
+            404,
+            "PRODUCT_UNAVAILABLE",
+            "This case is unavailable for checkout.",
+          );
           return json(await checkout(db, actor, id, provider));
         }
-        return json(await verifyOrder(db, actor, id, provider));
+        return json(
+          await orderForPlay(
+            db,
+            actor,
+            await verifyOrder(db, actor, id, provider),
+            premium,
+          ),
+        );
       }
       if (
         req.method === "POST" &&
@@ -386,7 +454,14 @@ export async function handle(req: NextRequest, path: string[]) {
             p.order.currency,
           ),
         );
-        return json(await readOrder(db, actor, id));
+        return json(
+          await orderForPlay(
+            db,
+            actor,
+            await readOrder(db, actor, id),
+            premium,
+          ),
+        );
       }
     }
     if (req.method === "GET" && route === "me/rooms")
@@ -397,7 +472,10 @@ export async function handle(req: NextRequest, path: string[]) {
         .strict()
         .parse(await body(req));
       await limit(db, "create-room:" + actor, 5, 3600);
-      return json(await createRoom(db, actor, b.caseId, b.displayName), 201);
+      return json(
+        await createRoom(db, actor, b.caseId, b.displayName, premium),
+        201,
+      );
     }
     if (req.method === "POST" && route === "rooms/join") {
       const b = z
@@ -445,6 +523,7 @@ export async function handle(req: NextRequest, path: string[]) {
             id,
             action,
             schema.strict().parse(await body(req)),
+            premium,
           ),
         );
       }
@@ -454,7 +533,7 @@ export async function handle(req: NextRequest, path: string[]) {
         .object({ caseId: z.string().min(1).max(80) })
         .strict()
         .parse(await body(req));
-      return json(await start(db, actor, b.caseId), 201);
+      return json(await start(db, actor, b.caseId, premium), 201);
     }
     if (req.method === "PUT" && route === "interests") {
       const b = z
