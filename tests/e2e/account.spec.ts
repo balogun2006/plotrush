@@ -1,7 +1,10 @@
 import { test, expect } from "@playwright/test";
-test("guest verifies email, retains private notes, signs back in and completes a demo order", async ({
+test("guest verifies email, retains private notes, signs back in and unlocks premium solo and group purchases", async ({
   page,
+  browser,
+  baseURL,
 }) => {
+  test.setTimeout(60000);
   const email = crypto.randomUUID() + "@example.test";
   await page.goto("/");
   await page
@@ -87,4 +90,58 @@ test("guest verifies email, retains private notes, signs back in and completes a
   expect(owned).toEqual([
     { productId: "wedding-gift-solo", mode: "solo", state: "active" },
   ]);
+  await page.getByRole("button", { name: "Play premium solo case" }).click();
+  await expect(
+    page.getByText("PREMIUM SOLO INVESTIGATION", { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText("Round 1 of 3", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Unlock next round" }).click();
+  await expect(page.getByText("Round 2 of 3", { exact: true })).toBeVisible();
+  await page.goto("/library");
+  await expect(
+    page.getByRole("heading", { name: "Purchased cases" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Play premium solo case" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Host premium group case" }),
+  ).toHaveCount(0);
+  await page.goto("/shop");
+  await page.getByRole("button", { name: "Create demo group order" }).click();
+  await page
+    .getByRole("button", { name: "Simulate successful development payment" })
+    .click();
+  await page.getByRole("link", { name: "Host premium group case" }).click();
+  await page.getByLabel("Display name").fill("Premium host");
+  await page.getByRole("button", { name: "Create premium room" }).click();
+  await expect(
+    page.getByRole("heading", { name: "The Missing Wedding Gift" }),
+  ).toBeVisible();
+  await expect(page.getByText(/Everyone needs to be ready. 4–6/)).toBeVisible();
+  const invite = (await page.locator(".invite-code").innerText()).trim();
+  const guest = await browser.newContext({
+    baseURL,
+    extraHTTPHeaders: {
+      "X-Forwarded-For": "premium-guest-" + crypto.randomUUID(),
+    },
+  });
+  try {
+    const guestPage = await guest.newPage();
+    await guestPage.goto("/rooms?code=" + invite);
+    await guestPage.getByLabel("Display name").fill("Invited guest");
+    await guestPage
+      .getByRole("button", { name: "Join room", exact: true })
+      .click();
+    await expect(
+      guestPage.getByRole("heading", { name: "The Missing Wedding Gift" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Start investigation" }),
+    ).toBeDisabled();
+    await page.reload();
+    await expect(page.locator(".invite-code")).toHaveText(invite);
+  } finally {
+    await guest.close();
+  }
 });
