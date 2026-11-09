@@ -208,3 +208,8 @@ Continue with complete MN-003 account/role foundations and MN-007–010 durable 
 - Existing investigations and completed results remain accessible. Dispute reconciliation does not modify refund revocations or other entitlement states. Older provider records cannot overwrite newer ones, and duplicate syncs do not add repeated audit events.
 - Migration008 adds the private dispute table and a separate entitlement hold. Sync is staff-triggered. Paystack dispute webhooks, provider-side decisions and real provider acceptance testing remain outside this increment.
 - Verification passed locally with 79 automated tests, 14 existing browser scenarios, TypeScript, lint, OpenAPI, fixture validation and the production build. New tests use simulated provider responses, including duplicate and stale status updates, payment mismatches and refund interactions. [Paystack Dispute API](https://paystack.com/docs/api/dispute/).
+
+## Returning account sign-in
+
+- A verified account can sign in from a new browser while its existing group room remains active. The account merge checks only rooms whose guest memberships would move. It still defers changes to affected active rooms.
+- A database regression test reproduces the blocked sign-in and checks that the existing account retains its seat and room version. All 80 automated tests, TypeScript, lint, API contracts, fixture validation and the production build passed locally.
