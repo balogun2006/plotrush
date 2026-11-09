@@ -26,7 +26,7 @@ type Result = {
 };
 export async function catalogue(db: Sql) {
   const r = await db.query<{ content: Case }>(
-    "SELECT DISTINCT ON(case_key) content FROM app_private.case_versions ORDER BY case_key,created_at DESC,id",
+    "SELECT DISTINCT ON(case_key) content FROM app_private.playable_versions ORDER BY case_key,created_at DESC,id",
   );
   return r.rows.map((x) => card(caseSchema.parse(x.content)));
 }
@@ -39,7 +39,7 @@ export async function start(db: Database, actor: string, key: string) {
       [actor],
     );
     const r = await tx.query<{ id: string; content: Case }>(
-      "SELECT id,content FROM app_private.case_versions WHERE case_key=$1 ORDER BY created_at DESC,id LIMIT 1",
+      "SELECT id,content FROM app_private.playable_versions WHERE case_key=$1 ORDER BY created_at DESC,id LIMIT 1",
       [key],
     );
     const version = r.rows[0];

@@ -1,6 +1,7 @@
 // Local test harness only. Production uses Railway PostgreSQL, never this socket server.
 import { PGlite } from "@electric-sql/pglite";
 import { PGLiteSocketServer } from "@electric-sql/pglite-socket";
+import { randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
 import { postgres } from "../lib/db/adapters";
 import { migrate, seedDrafts } from "../lib/db/bootstrap";
@@ -15,6 +16,22 @@ const url = "postgresql://postgres:postgres@127.0.0.1:5544/postgres";
 const client = await postgres(url);
 await migrate(client);
 await seedDrafts(client);
+// Only the disposable loopback test database receives synthetic staff accounts.
+for (const project of ["chromium", "mobile"])
+  for (const role of ["editor", "publisher"]) {
+    const id = randomUUID();
+    await client.query("INSERT INTO app_private.principals(id) VALUES($1)", [
+      id,
+    ]);
+    await client.query(
+      "INSERT INTO app_private.accounts(principal_id,email) VALUES($1,$2)",
+      [id, `studio-${role}-${project}@example.test`],
+    );
+    await client.query(
+      "INSERT INTO app_private.staff_members(principal_id,roles) VALUES($1,$2)",
+      [id, [`content_${role}`]],
+    );
+  }
 await client.close();
 const child = spawn(
   process.execPath,
@@ -26,6 +43,7 @@ const child = spawn(
       NODE_ENV: "production",
       APP_MODE: "test",
       PREVIEW_MODE: "true",
+      FEATURE_EDITORIAL_PUBLISH: "true",
       DATABASE_URL: url,
       APP_URL: "http://127.0.0.1:3000",
       PAYSTACK_ENVIRONMENT: "test",

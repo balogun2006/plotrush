@@ -261,6 +261,9 @@ it("never promotes future evidence when a member disconnects", async () => {
     "INSERT INTO app_private.case_versions(id,case_key,checksum,content,status) VALUES('two-round-test','two-round-test','test',$1,'draft')",
     [JSON.stringify(content)],
   );
+  await db.query(
+    "INSERT INTO app_private.preview_fixtures(version_id) VALUES('two-round-test')",
+  );
   const ids = await Promise.all([actor(), actor(), actor()]);
   const created = await createRoom(db, ids[0], content.key, "One");
   await joinRoom(db, ids[1], created.inviteCode, "Two");

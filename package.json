@@ -18,7 +18,8 @@
     "lint": "eslint .",
     "api:generate": "node --import tsx scripts/generate-openapi.ts",
     "api:check": "node --import tsx scripts/generate-openapi.ts --check",
-    "payments:work": "node --import tsx scripts/payment-worker.ts"
+    "payments:work": "node --import tsx scripts/payment-worker.ts",
+    "staff:manage": "node --import tsx scripts/staff.ts"
   },
   "dependencies": {
     "@electric-sql/pglite": "0.5.15",

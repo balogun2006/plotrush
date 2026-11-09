@@ -6,7 +6,7 @@ PlotRush is a mobile-first mystery game platform: solve a case alone, return for
 
 ## Project status
 
-**Playable draft preview.** Free solo and 2–6 player group tutorials, themed discovery, private notes/interests, verified-email account foundations and server-priced orders are implemented. Paystack sandbox checkout, signed webhook inbox, reconciliation and optional receipt delivery are integrated behind disabled flags. Real provider credentials and test transactions are still required. Premium gameplay, live billing, ads and editorial publishing remain outstanding. [Try staging](https://plotrush-web-staging.up.railway.app/) and see [implementation status](docs/implementation-status.md).
+**Playable draft preview.** Free solo and 2–6 player group tutorials, themed discovery, private notes/interests, verified-email account foundations and server-priced orders are implemented. Paystack sandbox checkout, signed webhook inbox, reconciliation and optional receipt delivery are integrated behind disabled flags. Real provider credentials and test transactions are still required. A protected editorial studio now supports draft authoring, independent review, immutable releases and a UTC calendar behind a disabled publication switch. Premium gameplay, live billing, ads and approved launch content remain outstanding. [Try staging](https://plotrush-web-staging.up.railway.app/) and see [implementation status](docs/implementation-status.md).
 
 ## Planned experience
 
@@ -98,3 +98,7 @@ Open `/rooms` to create or join The Missing Microphone. Use separate browser pro
 ## Paystack sandbox integration
 
 [Railway variables and activation steps](docs/RAILWAY-VARIABLES.md) list the exact keys, feature switches, webhook URL and private cron worker settings. [ADR004](docs/ADR-004-PAYSTACK.md) explains durable verification and remaining release gates. Hosted checkout needs no public key. Never enable live billing for the public draft cases.
+
+## Editorial studio
+
+`/admin` requires an operator-granted verified account and authenticator verification. There is no default administrator. [Staff setup](docs/STAFF-SETUP.md) explains provisioning and the publication switch; [ADR005](docs/ADR-005-EDITORIAL.md) records immutable versions, preview isolation and remaining scope. Calendar scheduling is editorial only; public daily selection and streaks remain forthcoming.

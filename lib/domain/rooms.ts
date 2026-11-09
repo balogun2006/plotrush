@@ -246,7 +246,7 @@ export async function createRoom(
     await lockPrincipal(tx, actor);
     const v = (
       await tx.query<{ id: string; content: Case }>(
-        "SELECT id,content FROM app_private.case_versions WHERE case_key=$1 ORDER BY created_at DESC,id LIMIT 1",
+        "SELECT id,content FROM app_private.playable_versions WHERE case_key=$1 ORDER BY created_at DESC,id LIMIT 1",
         [key],
       )
     ).rows[0];
