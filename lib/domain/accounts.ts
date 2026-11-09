@@ -102,8 +102,8 @@ async function audit(
   );
 }
 async function merge(tx: Sql, source: string, target: string) {
-  // Lock affected rooms before changing memberships. Active games must finish or
-  // be left first; account creation on the same principal needs no such merge.
+  // Lock rooms whose guest memberships will move. A room belonging only to the
+  // destination account needs no changes and can stay active during sign-in.
   const rooms = (
     await tx.query<{
       id: string;
@@ -114,8 +114,10 @@ async function merge(tx: Sql, source: string, target: string) {
         votes: Record<string, unknown>;
       };
     }>(
-      "SELECT r.id,r.state FROM app_private.rooms r WHERE r.host_id IN ($1,$2) OR EXISTS(SELECT 1 FROM app_private.room_members m WHERE m.room_id=r.id AND m.principal_id IN ($1,$2)) ORDER BY r.id FOR UPDATE OF r",
-      [source, target],
+      `SELECT r.id,r.state FROM app_private.rooms r
+       WHERE EXISTS(SELECT 1 FROM app_private.room_members m WHERE m.room_id=r.id AND m.principal_id=$1)
+       ORDER BY r.id FOR UPDATE OF r`,
+      [source],
     )
   ).rows;
   for (const r of rooms) {
@@ -168,13 +170,6 @@ async function merge(tx: Sql, source: string, target: string) {
     source,
   ]);
   for (const r of rooms) {
-    const src = (
-      await tx.query(
-        "SELECT 1 FROM app_private.room_members WHERE room_id=$1 AND principal_id=$2",
-        [r.id, source],
-      )
-    ).rows.length;
-    if (!src) continue;
     const dst = (
       await tx.query(
         "SELECT 1 FROM app_private.room_members WHERE room_id=$1 AND principal_id=$2",
