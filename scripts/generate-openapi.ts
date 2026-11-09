@@ -16,6 +16,7 @@ import {
   emptyInput,
   accountSchema,
   orderSchema,
+  premiumLibrarySchema,
 } from "../lib/contracts/account-commerce";
 const schema = (s: z.ZodType) =>
   z.toJSONSchema(s, { target: "draft-2020-12", io: "input" });
@@ -246,6 +247,12 @@ const doc = {
         },
       ],
       post: post(emptyInput, orderSchema, true),
+    },
+    "/me/premium": {
+      get: {
+        security: [{ session: [] }],
+        responses: { "200": response(premiumLibrarySchema) },
+      },
     },
     "/me/ownership": {
       get: { security: [{ session: [] }], responses: { "200": response() } },

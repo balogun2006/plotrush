@@ -3,12 +3,23 @@ import { z } from "zod";
 import type { Database, Sql } from "../db/types";
 import { assert } from "./errors";
 import { account } from "./accounts";
+import {
+  playableVersion,
+  supportsPremium,
+  type PremiumPolicy,
+  type PlayMode,
+} from "./premium";
 import { lockPrincipal } from "./identity";
 export type CommerceEnvironment = "development" | "test" | "live";
 import { orderInput } from "../contracts/account-commerce";
 export { orderInput } from "../contracts/account-commerce";
-export async function products(db: Sql, development = false, sandbox = false) {
-  return (
+export async function products(
+  db: Sql,
+  development = false,
+  sandbox = false,
+  premium?: PremiumPolicy,
+) {
+  const rows = (
     await db.query<{
       id: string;
       caseId: string;
@@ -21,6 +32,13 @@ export async function products(db: Sql, development = false, sandbox = false) {
       [development, sandbox],
     )
   ).rows;
+  const offered = [];
+  for (const row of rows) {
+    const version = await playableVersion(db, row.caseId);
+    if (!premium || supportsPremium(version, row.mode, premium))
+      offered.push({ ...row, title: version?.content.title ?? row.caseId });
+  }
+  return offered;
 }
 export async function createOrder(
   db: Database,
@@ -29,6 +47,7 @@ export async function createOrder(
   environment: CommerceEnvironment,
   development = false,
   sandbox = false,
+  premium?: PremiumPolicy,
 ) {
   input = orderInput.parse(input);
   return db.transaction(async (tx) => {
@@ -77,8 +96,13 @@ export async function createOrder(
       "You already own this case in this mode.",
     );
     const price = (
-      await tx.query<{ amount_minor: string; currency: string }>(
-        "SELECT v.amount_minor,v.currency FROM app_private.price_versions v JOIN app_private.products p ON p.id=v.product_id WHERE v.id=$1 AND p.id=$2 AND ($3 OR (v.active AND p.active) OR ($4 AND p.id IN ('wedding-gift-solo','wedding-gift-group') AND v.id IN ('demo-wedding-solo-ngn-v1','demo-wedding-group-ngn-v1'))) FOR SHARE OF p,v",
+      await tx.query<{
+        amount_minor: string;
+        currency: string;
+        case_key: string;
+        mode: PlayMode;
+      }>(
+        "SELECT v.amount_minor,v.currency,p.case_key,p.mode FROM app_private.price_versions v JOIN app_private.products p ON p.id=v.product_id WHERE v.id=$1 AND p.id=$2 AND ($3 OR (v.active AND p.active) OR ($4 AND p.id IN ('wedding-gift-solo','wedding-gift-group') AND v.id IN ('demo-wedding-solo-ngn-v1','demo-wedding-group-ngn-v1'))) FOR SHARE OF p,v",
         [
           input.priceVersionId,
           input.productId,
@@ -93,6 +117,17 @@ export async function createOrder(
       "PRODUCT_UNAVAILABLE",
       "This product or quote is unavailable.",
     );
+    if (premium)
+      assert(
+        supportsPremium(
+          await playableVersion(tx, price.case_key),
+          price.mode,
+          premium,
+        ),
+        404,
+        "PRODUCT_UNAVAILABLE",
+        "This case is unavailable for purchase in this mode.",
+      );
     const id = randomUUID();
     await tx.query(
       "INSERT INTO app_private.orders(id,buyer_id,product_id,price_version_id,amount_minor,currency,environment,idempotency_key) VALUES($1,$2,$3,$4,$5,$6,$7,$8)",
@@ -115,6 +150,7 @@ export async function readOrder(db: Sql, actor: string, id: string) {
     await db.query<{
       id: string;
       productId: string;
+      caseId: string;
       mode: "solo" | "group";
       amountMinor: number;
       currency: string;
@@ -123,7 +159,7 @@ export async function readOrder(db: Sql, actor: string, id: string) {
       expiresAt: string;
       paidAt: string | null;
     }>(
-      `SELECT o.id,o.product_id AS "productId",p.mode,o.amount_minor::integer AS "amountMinor",o.currency,CASE WHEN o.status='pending' AND o.expires_at<=now() THEN 'expired' ELSE o.status END AS status,o.environment,o.expires_at AS "expiresAt",o.paid_at AS "paidAt" FROM app_private.orders o JOIN app_private.products p ON p.id=o.product_id WHERE o.id=$1 AND o.buyer_id=$2`,
+      `SELECT o.id,o.product_id AS "productId",p.case_key AS "caseId",p.mode,o.amount_minor::integer AS "amountMinor",o.currency,CASE WHEN o.status='pending' AND o.expires_at<=now() THEN 'expired' ELSE o.status END AS status,o.environment,o.expires_at AS "expiresAt",o.paid_at AS "paidAt" FROM app_private.orders o JOIN app_private.products p ON p.id=o.product_id WHERE o.id=$1 AND o.buyer_id=$2`,
       [id, actor],
     )
   ).rows[0];

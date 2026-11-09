@@ -1,10 +1,12 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Users, LockKeyhole, Share2, ArrowRight, Check } from "lucide-react";
+import Link from "next/link";
 import { api, ApiError } from "./api";
 import type { RoomSnapshot } from "../lib/domain/rooms";
 type SavedRoom = { id: string; title: string; phase: string };
-export function GroupRoom() {
+export function GroupRoom({ caseId = "missing-mic" }: { caseId?: string }) {
+  const premiumHost = caseId !== "missing-mic";
   const [room, setRoom] = useState<RoomSnapshot | null>(null),
     [name, setName] = useState(""),
     [code, setCode] = useState(""),
@@ -30,6 +32,7 @@ export function GroupRoom() {
     async (id: string) => {
       const r = await api<RoomSnapshot>("rooms/" + id);
       apply(r);
+      setInvite(sessionStorage.getItem("plotrush-invite:" + id) ?? "");
       window.history.replaceState(null, "", "/rooms?room=" + id);
     },
     [apply],
@@ -94,13 +97,14 @@ export function GroupRoom() {
           code,
           displayName: name,
         });
+        setInvite("");
         apply(r);
         window.history.replaceState(null, "", "/rooms?room=" + r.id);
       } else {
         const r = await api<{ room: RoomSnapshot; inviteCode: string }>(
           "rooms",
           "POST",
-          { caseId: "missing-mic", displayName: name },
+          { caseId, displayName: name },
         );
         setInvite(r.inviteCode);
         sessionStorage.setItem("plotrush-invite:" + r.room.id, r.inviteCode);
@@ -142,7 +146,12 @@ export function GroupRoom() {
       apply(r);
       if (action === "leave") {
         setRoom(null);
-        window.history.replaceState(null, "", "/rooms");
+        setInvite("");
+        window.history.replaceState(
+          null,
+          "",
+          premiumHost ? "/rooms?case=" + encodeURIComponent(caseId) : "/rooms",
+        );
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Please try again.");
@@ -155,11 +164,10 @@ export function GroupRoom() {
   }
   async function copyInvite() {
     if (!room) return;
-    const value =
-      invite || sessionStorage.getItem("plotrush-invite:" + room.id);
+    const value = sessionStorage.getItem("plotrush-invite:" + room.id);
     if (!value) {
       setNotice(
-        "The creator can share the original invite code. If it was lost, start a new free room.",
+        "The creator can share the original invite code. If it was lost, create a new room from your case library.",
       );
       return;
     }
@@ -184,7 +192,9 @@ export function GroupRoom() {
           <p>
             {room
               ? "Compare your evidence. Trust the details."
-              : "Gather 2–6 curious minds for The Missing Microphone. Free, no account needed."}
+              : premiumHost
+                ? "Host your purchased case for 4–6 players. Guests join with an invite."
+                : "Gather 2–6 curious minds for The Missing Microphone. Free, no account needed."}
           </p>
         </div>
         <Users size={36} />
@@ -220,7 +230,8 @@ export function GroupRoom() {
                 disabled={busy || !name.trim()}
                 onClick={() => enter(false)}
               >
-                Create a free room <ArrowRight size={17} />
+                {premiumHost ? "Create premium room" : "Create a free room"}{" "}
+                <ArrowRight size={17} />
               </button>
             </section>
             <section className="room-panel">
@@ -260,14 +271,17 @@ export function GroupRoom() {
             </section>
           )}
           <p className="room-fineprint">
-            Draft tutorial · 8 minutes · no ads or payments. Keep this browser
-            to reconnect.
+            {premiumHost
+              ? "Premium group preview · Guests join free. "
+              : "Draft tutorial · 8 minutes · free play. "}
+            Keep this browser to reconnect.
           </p>
         </>
       ) : (
         <>
           <div className="room-status">
             <span className="pill">
+              {room.access === "paid" && "PREMIUM · "}
               {room.phase.toUpperCase()}
               {room.round > 0
                 ? ` · ROUND ${room.round}/${room.totalRounds}`
@@ -565,7 +579,15 @@ export function GroupRoom() {
               {(room.phase === "expired" || room.phase === "cancelled") && (
                 <section className="room-panel">
                   <h2>This room has ended.</h2>
-                  <p>Start a new free tutorial whenever your group is ready.</p>
+                  <p>
+                    {room.access === "paid" ? (
+                      <Link href="/library">
+                        Open My cases to host another room
+                      </Link>
+                    ) : (
+                      "Start a new free tutorial whenever your group is ready."
+                    )}
+                  </p>
                   <a className="button lime" href="/rooms">
                     Create another room
                   </a>

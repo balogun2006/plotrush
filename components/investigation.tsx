@@ -201,7 +201,11 @@ export function Investigation({ id }: { id: string }) {
       </Link>
       <div className="game-heading">
         <div>
-          <span className="eyebrow">FREE SOLO INVESTIGATION</span>
+          <span className="eyebrow">
+            {a.access === "paid"
+              ? "PREMIUM SOLO INVESTIGATION"
+              : "FREE SOLO INVESTIGATION"}
+          </span>
           <h1>{a.title}</h1>
         </div>
         <span className="round-pill">

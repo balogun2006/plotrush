@@ -4,7 +4,7 @@ Updated 8 November 2026. First playable **draft preview**; no alpha/beta or prod
 
 ## Delivered slice
 
-Guest solo play, database-backed notes/hints/results, discovery filters, private interests, recommendations and case library. Three free solo drafts and the free 2–6 player group tutorial are implemented. Premium gameplay remains denied. Accounts/orders, Paystack sandbox integration and a protected editorial studio are implemented behind configuration/release gates. Actual provider acceptance, approved launch content and ad integrations remain outstanding. Public fixture solutions remain examples.
+Guest solo play, database-backed notes/hints/results, discovery filters, private interests, recommendations and case library. Three free solo drafts and the free 2–6 player group tutorial are implemented. Purchase-based premium solo and group gameplay is implemented behind a disabled staging flag. Accounts/orders, Paystack sandbox integration and a protected editorial studio are implemented behind configuration/release gates. Actual provider acceptance, approved launch content and ad integrations remain outstanding. Public fixture solutions remain examples.
 
 ## Verification
 
@@ -175,3 +175,10 @@ Continue with complete MN-003 account/role foundations and MN-007–010 durable 
 - Draft PR #5: https://github.com/balogun2006/plotrush/pull/5 . Based on `feat/paystack-integration` for a focused diff; prior pending PRs #3/#4 were not merged. Follow their dependency order when merging and retarget this PR afterward.
 - Live studio entry: https://plotrush-web-staging.up.railway.app/admin . Hosted gate screenshot: `docs/previews/plotrush-editorial-staging-1794181272542.jpg`. The separate `plotrush-editorial-studio.jpg` shows the local synthetic authenticated workspace.
 - To use the studio, configure actual email delivery, verify staff accounts, provision the intended editor/publisher through the authorised operator command, then enroll their authenticators. [Staff setup](STAFF-SETUP.md) covers this process. No new provider key is needed for the editorial increment; FEATURE_EDITORIAL_PUBLISH is the new independently disabled switch.
+
+## Premium gameplay preview
+
+- Verified buyers can start a purchased solo case or host a purchased group case from their order or My Cases. Purchases grant reusable access for their specific mode. The server requires the matching paid order, active entitlement, payment environment and eligible case release.
+- Guests join by invitation with no purchase or email account. The premium fixture needs four ready players and supports up to six. The server rechecks the original buyer’s access when starting the lobby. Suspension or withdrawal stops future starts while existing investigations remain available.
+- The staging switch is `FEATURE_PREMIUM_PLAY=false`. The sandbox catalogue switch permits the labelled public test fixture. New hosted checkout requires premium play to be enabled so buyers have a playable destination. Payment verification and reconciliation can still complete after checkout is disabled.
+- No schema migration is required. The test suite covers all three solo rounds, group capacity, invitation access, ownership isolation, mode and environment mismatches, and a revoked purchase after lobby creation. Actual provider acceptance, reviewed release content, live billing and refunds remain separate milestones.

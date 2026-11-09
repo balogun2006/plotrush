@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowUpRight, Bookmark, Check } from "lucide-react";
 import { api, ApiError } from "@/components/api";
+import { PremiumPlay } from "@/components/premium-play";
+type OwnedCase = { caseId: string; title: string; mode: "solo" | "group" };
 type Item = {
   id: string;
   title: string;
@@ -12,13 +14,21 @@ type Item = {
 };
 export default function Library() {
   const [items, setItems] = useState<Item[] | null>(null),
-    [error, setError] = useState("");
+    [error, setError] = useState(""),
+    [owned, setOwned] = useState<OwnedCase[]>([]),
+    [ownedError, setOwnedError] = useState("");
   useEffect(() => {
     api<Item[]>("me/library")
       .then(setItems)
       .catch((e) => {
         if (e instanceof ApiError && e.status === 401) setItems([]);
         else setError(e.message);
+      });
+    api<OwnedCase[]>("me/premium")
+      .then(setOwned)
+      .catch((e) => {
+        if (!(e instanceof ApiError && e.status === 401))
+          setOwnedError(e.message);
       });
   }, []);
   return (
@@ -30,6 +40,24 @@ export default function Library() {
         </h1>
         <p>Pick up a thread. Revisit an aha moment.</p>
       </div>
+      {ownedError && (
+        <p role="alert" className="error">
+          {ownedError}
+        </p>
+      )}
+      {owned.length > 0 && (
+        <section className="room-panel">
+          <h2>Purchased cases</h2>
+          {owned.map((c) => (
+            <div key={c.caseId + ":" + c.mode} className="room-actions">
+              <strong>
+                {c.title} · {c.mode}
+              </strong>
+              <PremiumPlay caseId={c.caseId} mode={c.mode} />
+            </div>
+          ))}
+        </section>
+      )}
       {error ? (
         <p role="alert" className="error">
           {error}
@@ -38,7 +66,7 @@ export default function Library() {
         <p role="status" className="loading-card">
           Finding your case files…
         </p>
-      ) : !items.length ? (
+      ) : !items.length && !owned.length ? (
         <div className="empty-state">
           <Bookmark size={37} />
           <h2>Your first case is waiting.</h2>

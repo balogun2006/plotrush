@@ -1,6 +1,6 @@
 # PlotRush Railway configuration
 
-Use project **plotrush**, environment **staging**, service **plotrush-web**. Keep credentials in Railway, never in GitHub or chat. The integration supports **Paystack test transactions only** in this draft preview. Approved premium gameplay, live billing, refunds, ads and production operational certification remain separate work.
+Use project **plotrush**, environment **staging**, service **plotrush-web**. Keep credentials in Railway, never in GitHub or chat. The integration supports **Paystack test transactions only** in this draft preview. Approved launch content, live billing, refunds, ads and production operational certification remain separate work.
 
 ## Values the owner supplies
 
@@ -21,6 +21,7 @@ After entering valid **test** credentials and configuring the endpoint below, se
 | --------------------------- | ------ | -------------------------------------------------------------------------------------------------------------------- |
 | `FEATURE_EMAIL_AUTH`        | `true` | Allows verified email accounts. Required before a buyer can create an order.                                         |
 | `FEATURE_PAYMENTS`          | `true` | Allows new sandbox orders and hosted checkout. Turning it off leaves verification and reconciliation running.        |
+| `FEATURE_PREMIUM_PLAY`      | `true` | Enables eligible premium starts and is required for new hosted checkout.                                             |
 | `FEATURE_SANDBOX_CATALOGUE` | `true` | Exposes only the two known, labelled draft test products. These prices are fixtures, not approved commercial prices. |
 | `FEATURE_PAYMENT_RECEIPTS`  | `true` | Allows queued payment confirmations through Resend. Optional; failed email never removes a verified purchase.        |
 
@@ -58,7 +59,7 @@ Return URLs are set by the server as `APP_URL/orders/<order-id>`; there is no ca
 
 ## Private cron worker
 
-Service **plotrush-payments-worker** uses the same source commit as the web service:
+Service **plotrush-payments-worker** is deployed independently from the web service:
 
 - Build: `pnpm api:check` (Railpack installs dependencies).
 - Start: `pnpm payments:work`.
@@ -86,7 +87,7 @@ After updating the web variables, redeploy the web service and the worker so bot
 3. Confirm the order is paid and ownership saved exactly once. Replay a signed event and run verification again: no second entitlement or receipt row.
 4. Confirm a webhook inbox event reaches done and the next cron run processes any pending work. Turn off new checkout and verify an already-started payment can still complete.
 5. Confirm receipt email if enabled. Retry email failure without changing order or ownership.
-6. Do not advertise premium access: paid gameplay is not released. Record the actual provider test before calling the integration externally verified.
+6. Open the paid order or My Cases and start the purchased mode. For a group purchase, host the case and join from three separate guest browsers. Confirm the lobby starts when all four players are ready. Record the provider test and use reviewed content for any public launch.
 
 ## Recovery
 

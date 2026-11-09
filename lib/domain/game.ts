@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Database, Sql } from "../db/types";
 import { Case, caseSchema, card } from "./content";
 import { assert } from "./errors";
+import { playableVersion, requirePremium, type PremiumPolicy } from "./premium";
 import { lockPrincipal } from "./identity";
 type Attempt = {
   id: string;
@@ -30,7 +31,12 @@ export async function catalogue(db: Sql) {
   );
   return r.rows.map((x) => card(caseSchema.parse(x.content)));
 }
-export async function start(db: Database, actor: string, key: string) {
+export async function start(
+  db: Database,
+  actor: string,
+  key: string,
+  premium?: PremiumPolicy,
+) {
   return db.transaction(async (tx) => {
     await lockPrincipal(tx, actor);
     // Lock the actor so duplicate starts serialize even before the attempt row exists.
@@ -38,19 +44,17 @@ export async function start(db: Database, actor: string, key: string) {
       "SELECT id FROM app_private.principals WHERE id=$1 FOR UPDATE",
       [actor],
     );
-    const r = await tx.query<{ id: string; content: Case }>(
-      "SELECT id,content FROM app_private.playable_versions WHERE case_key=$1 ORDER BY created_at DESC,id LIMIT 1",
-      [key],
-    );
-    const version = r.rows[0];
+    const version = await playableVersion(tx, key);
     assert(version, 404, "NOT_FOUND", "Case unavailable.");
     const c = caseSchema.parse(version.content);
     assert(
-      c.access === "free" && c.modes.includes("solo"),
+      c.modes.includes("solo"),
       403,
       "CASE_UNAVAILABLE",
-      "This case is not available for free solo play.",
+      "This case is unavailable for solo play.",
     );
+    if (c.access === "paid")
+      await requirePremium(tx, actor, version, "solo", premium);
     const existing = await tx.query<{ id: string }>(
       "SELECT id FROM app_private.attempts WHERE principal_id=$1 AND case_version_id=$2 AND state='investigating'",
       [actor, version.id],
@@ -83,6 +87,7 @@ function snapshot(a: Attempt, c: Case = caseSchema.parse(a.content)) {
   return {
     id: a.id,
     caseId: c.key,
+    access: c.access,
     title: c.title,
     briefing: c.briefing,
     state: a.state,

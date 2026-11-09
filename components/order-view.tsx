@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+import { PremiumPlay } from "./premium-play";
 import { api } from "./api";
 type Order = {
   id: string;
@@ -8,7 +9,9 @@ type Order = {
   currency: string;
   status: string;
   environment: string;
-  mode: string;
+  mode: "solo" | "group";
+  caseId: string;
+  playAvailable?: boolean;
 };
 export function OrderView({ id }: { id: string }) {
   const [order, setOrder] = useState<Order | null>(null),
@@ -102,17 +105,17 @@ export function OrderView({ id }: { id: string }) {
           </p>
           <p>Status: {order.status}.</p>
           {order.environment !== "live" && (
-            <p className="room-message">
-              Sandbox order · Test payments only. Premium gameplay has not been
-              released.
-            </p>
+            <p className="room-message">Sandbox order · Test payments only.</p>
           )}
           {notice && <p role="status">{notice}</p>}
           {order.status === "paid" ? (
-            <p>
-              Your purchase is recorded in your account. Email confirmation,
-              when configured, is sent separately.
-            </p>
+            <>
+              <p>Your purchase is recorded in your account.</p>
+              {order.playAvailable && (
+                <PremiumPlay caseId={order.caseId} mode={order.mode} />
+              )}
+              <Link href="/library">My cases</Link>
+            </>
           ) : (
             <>
               <p>

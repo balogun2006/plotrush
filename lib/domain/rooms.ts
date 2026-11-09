@@ -3,6 +3,12 @@ import { z } from "zod";
 import { Database, Sql } from "../db/types";
 import { Case, caseSchema } from "./content";
 import { assert } from "./errors";
+import {
+  playableVersion,
+  requirePremium,
+  supportsPremium,
+  type PremiumPolicy,
+} from "./premium";
 import { hash, lockPrincipal } from "./identity";
 
 export const displayName = z
@@ -55,6 +61,9 @@ type Member = {
 type Room = {
   id: string;
   state_version: number;
+  host_id: string;
+  case_version_id: string;
+  version_status: string;
   state: RoomState;
   content: Case;
   expires_at: string;
@@ -69,7 +78,7 @@ const terminal = (s: RoomState) =>
 async function lock(tx: Sql, id: string) {
   const r = (
     await tx.query<Room>(
-      "SELECT r.*,v.content,clock_timestamp() AS clock FROM app_private.rooms r JOIN app_private.case_versions v ON v.id=r.case_version_id WHERE r.id=$1 FOR UPDATE OF r",
+      "SELECT r.*,v.content,v.status AS version_status,clock_timestamp() AS clock FROM app_private.rooms r JOIN app_private.case_versions v ON v.id=r.case_version_id WHERE r.id=$1 FOR UPDATE OF r",
       [id],
     )
   ).rows[0];
@@ -215,7 +224,8 @@ function project(r: Room, ms: Member[], actor: string) {
     paused: s.pausedAt !== null,
     isHost: s.host === actor,
     seat: me.seat,
-    minPlayers: c.minPlayers,
+    access: c.access,
+    minPlayers: minimumPlayers(c),
     maxPlayers: c.maxPlayers,
     members: ms.map((m) => ({
       seat: m.seat,
@@ -234,30 +244,38 @@ function project(r: Room, ms: Member[], actor: string) {
     result: s.result,
   };
 }
+function minimumPlayers(c: Case) {
+  return c.access === "paid" ? Math.max(4, c.minPlayers) : c.minPlayers;
+}
 export type RoomSnapshot = ReturnType<typeof project>;
 export async function createRoom(
   db: Database,
   actor: string,
   key: string,
   name: string,
+  premium?: PremiumPolicy,
 ) {
   name = displayName.parse(name);
   return db.transaction(async (tx) => {
     await lockPrincipal(tx, actor);
-    const v = (
-      await tx.query<{ id: string; content: Case }>(
-        "SELECT id,content FROM app_private.playable_versions WHERE case_key=$1 ORDER BY created_at DESC,id LIMIT 1",
-        [key],
-      )
-    ).rows[0];
+    const v = await playableVersion(tx, key);
     assert(v, 404, "NOT_FOUND", "Case unavailable.");
     const c = caseSchema.parse(v.content);
     assert(
-      c.access === "free" && c.kind === "tutorial" && c.modes.includes("group"),
+      c.modes.includes("group"),
       403,
       "CASE_UNAVAILABLE",
-      "Only the free group tutorial is available in this preview.",
+      "This case is unavailable for group play.",
     );
+    if (c.access === "paid")
+      await requirePremium(tx, actor, v, "group", premium);
+    else
+      assert(
+        c.kind === "tutorial",
+        403,
+        "CASE_UNAVAILABLE",
+        "Choose a free group tutorial.",
+      );
     const id = randomUUID(),
       code = randomBytes(6).toString("hex").toUpperCase();
     const state: RoomState = {
@@ -358,6 +376,7 @@ export async function roomAction(
   id: string,
   action = "read",
   input?: RoomCommand,
+  premium?: PremiumPolicy,
 ) {
   return db
     .transaction(async (tx) => {
@@ -417,12 +436,32 @@ export async function roomAction(
         const roster = active(ms).sort((a, b) => a.seat - b.seat);
         assert(
           s.phase === "lobby" &&
-            roster.length >= r.content.minPlayers &&
+            roster.length >= minimumPlayers(r.content) &&
             roster.every((m) => m.ready && now - seen(m) < 60000),
           422,
           "NOT_READY",
-          "All players must be present and ready.",
+          `At least ${minimumPlayers(r.content)} players must be present and everyone must be ready.`,
         );
+        if (r.content.access === "paid") {
+          const release = await playableVersion(tx, r.content.key);
+          assert(
+            supportsPremium(release, "group", premium),
+            404,
+            "NOT_FOUND",
+            "This case is no longer available for new games.",
+          );
+          await requirePremium(
+            tx,
+            r.host_id,
+            {
+              id: r.case_version_id,
+              content: r.content,
+              status: r.version_status,
+            },
+            "group",
+            premium,
+          );
+        }
         for (const round of r.content.rounds)
           round.clues.forEach((clue, i) => {
             s.assignments[clue.id] = roster[i % roster.length].principal_id;
