@@ -2150,6 +2150,12 @@
                         "productId": {
                           "type": "string"
                         },
+                        "caseId": {
+                          "type": "string"
+                        },
+                        "playAvailable": {
+                          "type": "boolean"
+                        },
                         "mode": {
                           "type": "string",
                           "enum": [
@@ -2196,6 +2202,7 @@
                       "required": [
                         "id",
                         "productId",
+                        "caseId",
                         "mode",
                         "amountMinor",
                         "currency",
@@ -2267,6 +2274,12 @@
                         "productId": {
                           "type": "string"
                         },
+                        "caseId": {
+                          "type": "string"
+                        },
+                        "playAvailable": {
+                          "type": "boolean"
+                        },
                         "mode": {
                           "type": "string",
                           "enum": [
@@ -2313,6 +2326,7 @@
                       "required": [
                         "id",
                         "productId",
+                        "caseId",
                         "mode",
                         "amountMinor",
                         "currency",
@@ -2461,6 +2475,12 @@
                         "productId": {
                           "type": "string"
                         },
+                        "caseId": {
+                          "type": "string"
+                        },
+                        "playAvailable": {
+                          "type": "boolean"
+                        },
                         "mode": {
                           "type": "string",
                           "enum": [
@@ -2507,6 +2527,7 @@
                       "required": [
                         "id",
                         "productId",
+                        "caseId",
                         "mode",
                         "amountMinor",
                         "currency",
@@ -2598,6 +2619,12 @@
                         "productId": {
                           "type": "string"
                         },
+                        "caseId": {
+                          "type": "string"
+                        },
+                        "playAvailable": {
+                          "type": "boolean"
+                        },
                         "mode": {
                           "type": "string",
                           "enum": [
@@ -2644,6 +2671,7 @@
                       "required": [
                         "id",
                         "productId",
+                        "caseId",
                         "mode",
                         "amountMinor",
                         "currency",
@@ -2675,6 +2703,63 @@
           },
           "503": {
             "description": "Provider not configured or development operation disabled"
+          }
+        }
+      }
+    },
+    "/me/premium": {
+      "get": {
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response in the data/meta envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$schema": "https://json-schema.org/draft/2020-12/schema",
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "caseId": {
+                            "type": "string"
+                          },
+                          "mode": {
+                            "type": "string",
+                            "enum": [
+                              "solo",
+                              "group"
+                            ]
+                          },
+                          "title": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "caseId",
+                          "mode",
+                          "title"
+                        ]
+                      }
+                    },
+                    "meta": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
