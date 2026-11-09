@@ -191,3 +191,12 @@ Continue with complete MN-003 account/role foundations and MN-007–010 durable 
 - Migration006 adds the nullable date and partial uniqueness index to existing attempts. Old investigations and scores remain available. The daily API uses the existing private no-store response and anonymous session flow.
 - The seven-day expiry and explicit abandon controls described in the broader solo specification remain outstanding. Public launch still requires the reviewed content queue and independent blind playtests.
 - TypeScript, lint, generated OpenAPI, five fixture validations and the production build passed. All 74 domain and SQL tests and all 14 desktop and mobile browser scenarios passed. The browser flow schedules a synthetic case, completes it as a guest, verifies streak credit and confirms archive fallback for a different player after withdrawal.
+
+## Refund requests and finance reconciliation
+
+- Paid Paystack test-order owners can open one refund request per order. The order page distinguishes a request from the amount Paystack has confirmed as refunded.
+- Finance and admin staff can use the MFA-protected finance desk to find orders, read open requests, reconcile a Paystack refund ID and close a request with an audit reason. Finance-only staff have no editorial canon access.
+- Reconciliation uses a read-only Paystack lookup and matches the refund ID, payment transaction, currency and test environment. An order lock serializes concurrent updates and a unique provider ID prevents counting a processed refund twice. Confirmed partial refunds preserve access. Confirmed refunds totaling the original payment revoke the entitlement for that order. History and in-progress investigations remain available, and a later verified purchase can grant access again.
+- Migration007 adds private request and refund tables and the finance role. The existing staff enrollment and Paystack test key are sufficient. An authorised operator can grant the finance role using the existing staff command.
+- Staff initiate refunds separately in the Paystack dashboard. Automatic provider refund initiation, dispute reconciliation, revenue exports and provider-backed staging acceptance remain outstanding in MN-013.
+- All 77 automated tests and 14 existing desktop and mobile browser scenarios passed. TypeScript, lint, generated OpenAPI, fixture validation and the production build passed. Refund-specific tests use a disposable database and synthetic provider responses.

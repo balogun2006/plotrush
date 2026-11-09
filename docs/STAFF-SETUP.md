@@ -44,3 +44,9 @@ pnpm staff:manage revoke staff@your-domain.example
 Active role checks invalidate requests immediately, and the command removes staff sessions. Do not change AUTH_CODE_SECRET to recover a lost phone: that would make every stored authenticator key unreadable. This increment has no self-service MFA reset or recovery codes. Revoke the affected member, independently verify their identity, then use an authorised, audited database maintenance procedure to reset only that member's MFA fields before re-enrollment. Preserve an external operator/change record; do not invent approval or bypass identity checks.
 
 Database runtime least privilege, staff recovery tooling, MFA key rotation, full operational alerts and backup/restore drills remain launch requirements. Never share authenticator keys, codes, private case JSON or database URLs in public issues/logs. Do not assume a screenshot of the local synthetic test studio proves that real staff sign-in or editorial approval happened on Railway.
+
+## Finance desk
+
+Grant `finance` to an intended verified staff account using `pnpm staff:manage grant <verified-email> finance`. The grant replaces the account's role list and invalidates existing staff sessions. Finance-only staff can use the finance desk after MFA and have no editorial access. Admins can use both workspaces.
+
+The finance desk lists open refund requests and searches paid Paystack test orders by exact order ID or payment reference. If authorised to issue a refund, complete it in Paystack test mode. Enter the numeric Paystack refund ID against the matching order in the finance desk and select **Verify and reconcile refund**. A pending or failed provider status does not change the confirmed total. A fully refunded order closes its open request automatically. Use **Close request** with an audit reason when review is complete after a partial refund or when the request will not proceed. Avoid putting card or bank details in request or review notes.

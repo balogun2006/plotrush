@@ -25,6 +25,319 @@
     }
   },
   "paths": {
+    "/admin/finance/orders": {
+      "get": {
+        "security": [
+          {
+            "session": [],
+            "staffSession": []
+          }
+        ],
+        "x-staff-role": "finance",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response in the data/meta envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$schema": "https://json-schema.org/draft/2020-12/schema",
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "refundedMinor": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "refundRequested": {
+                            "type": "boolean"
+                          },
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "reference": {
+                            "type": "string"
+                          },
+                          "productId": {
+                            "type": "string"
+                          },
+                          "amountMinor": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "currency": {
+                            "type": "string"
+                          },
+                          "reason": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "requestId": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "refundedMinor",
+                          "refundRequested",
+                          "id",
+                          "reference",
+                          "productId",
+                          "amountMinor",
+                          "currency",
+                          "reason",
+                          "requestId"
+                        ]
+                      }
+                    },
+                    "meta": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Finance role and fresh MFA required"
+          }
+        }
+      }
+    },
+    "/admin/finance/orders/{id}/reconcile-refund": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "post": {
+        "security": [
+          {
+            "session": [],
+            "staffSession": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "providerId": {
+                    "type": "string",
+                    "pattern": "^[1-9][0-9]{0,19}$"
+                  }
+                },
+                "required": [
+                  "providerId"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response in the data/meta envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$schema": "https://json-schema.org/draft/2020-12/schema",
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "pending",
+                            "processing",
+                            "needs-attention",
+                            "failed",
+                            "processed"
+                          ]
+                        },
+                        "refundedMinor": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "status",
+                        "refundedMinor"
+                      ]
+                    },
+                    "meta": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid fields or expired code"
+          },
+          "401": {
+            "description": "Session required"
+          },
+          "403": {
+            "description": "Origin, owner or verified identity required"
+          },
+          "409": {
+            "description": "Merge confirmation, stale state or idempotency conflict"
+          },
+          "503": {
+            "description": "Provider not configured or development operation disabled"
+          }
+        },
+        "x-staff-role": "finance"
+      }
+    },
+    "/admin/finance/orders/{id}/close-refund-request": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "post": {
+        "security": [
+          {
+            "session": [],
+            "staffSession": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500
+                  },
+                  "requestId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "reason",
+                  "requestId"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response in the data/meta envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$schema": "https://json-schema.org/draft/2020-12/schema",
+                      "type": "object",
+                      "properties": {
+                        "closed": {
+                          "type": "boolean",
+                          "const": true
+                        }
+                      },
+                      "required": [
+                        "closed"
+                      ]
+                    },
+                    "meta": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid fields or expired code"
+          },
+          "401": {
+            "description": "Session required"
+          },
+          "403": {
+            "description": "Origin, owner or verified identity required"
+          },
+          "409": {
+            "description": "Merge confirmation, stale state or idempotency conflict"
+          },
+          "503": {
+            "description": "Provider not configured or development operation disabled"
+          }
+        },
+        "x-staff-role": "finance"
+      }
+    },
     "/admin/access": {
       "get": {
         "security": [
@@ -2381,6 +2694,14 @@
                       "$schema": "https://json-schema.org/draft/2020-12/schema",
                       "type": "object",
                       "properties": {
+                        "refundedMinor": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "refundRequested": {
+                          "type": "boolean"
+                        },
                         "id": {
                           "type": "string",
                           "format": "uuid",
@@ -2439,6 +2760,8 @@
                         }
                       },
                       "required": [
+                        "refundedMinor",
+                        "refundRequested",
                         "id",
                         "productId",
                         "caseId",
@@ -2505,6 +2828,14 @@
                       "$schema": "https://json-schema.org/draft/2020-12/schema",
                       "type": "object",
                       "properties": {
+                        "refundedMinor": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "refundRequested": {
+                          "type": "boolean"
+                        },
                         "id": {
                           "type": "string",
                           "format": "uuid",
@@ -2563,6 +2894,8 @@
                         }
                       },
                       "required": [
+                        "refundedMinor",
+                        "refundRequested",
                         "id",
                         "productId",
                         "caseId",
@@ -2585,6 +2918,168 @@
           },
           "404": {
             "description": "Order not owned or unavailable"
+          }
+        }
+      }
+    },
+    "/orders/{id}/refund-request": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "post": {
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500
+                  }
+                },
+                "required": [
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response in the data/meta envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$schema": "https://json-schema.org/draft/2020-12/schema",
+                      "type": "object",
+                      "properties": {
+                        "refundedMinor": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "refundRequested": {
+                          "type": "boolean"
+                        },
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "productId": {
+                          "type": "string"
+                        },
+                        "caseId": {
+                          "type": "string"
+                        },
+                        "playAvailable": {
+                          "type": "boolean"
+                        },
+                        "mode": {
+                          "type": "string",
+                          "enum": [
+                            "solo",
+                            "group"
+                          ]
+                        },
+                        "amountMinor": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "currency": {
+                          "type": "string",
+                          "minLength": 3,
+                          "maxLength": 3
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "pending",
+                            "paid",
+                            "expired"
+                          ]
+                        },
+                        "environment": {
+                          "type": "string",
+                          "enum": [
+                            "development",
+                            "test",
+                            "live"
+                          ]
+                        },
+                        "expiresAt": {
+                          "type": "string"
+                        },
+                        "paidAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "refundedMinor",
+                        "refundRequested",
+                        "id",
+                        "productId",
+                        "caseId",
+                        "mode",
+                        "amountMinor",
+                        "currency",
+                        "status",
+                        "environment",
+                        "expiresAt",
+                        "paidAt"
+                      ]
+                    },
+                    "meta": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid fields or expired code"
+          },
+          "401": {
+            "description": "Session required"
+          },
+          "403": {
+            "description": "Origin, owner or verified identity required"
+          },
+          "409": {
+            "description": "Merge confirmation, stale state or idempotency conflict"
+          },
+          "503": {
+            "description": "Provider not configured or development operation disabled"
           }
         }
       }
@@ -2706,6 +3201,14 @@
                       "$schema": "https://json-schema.org/draft/2020-12/schema",
                       "type": "object",
                       "properties": {
+                        "refundedMinor": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "refundRequested": {
+                          "type": "boolean"
+                        },
                         "id": {
                           "type": "string",
                           "format": "uuid",
@@ -2764,6 +3267,8 @@
                         }
                       },
                       "required": [
+                        "refundedMinor",
+                        "refundRequested",
                         "id",
                         "productId",
                         "caseId",
@@ -2850,6 +3355,14 @@
                       "$schema": "https://json-schema.org/draft/2020-12/schema",
                       "type": "object",
                       "properties": {
+                        "refundedMinor": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "refundRequested": {
+                          "type": "boolean"
+                        },
                         "id": {
                           "type": "string",
                           "format": "uuid",
@@ -2908,6 +3421,8 @@
                         }
                       },
                       "required": [
+                        "refundedMinor",
+                        "refundRequested",
                         "id",
                         "productId",
                         "caseId",
