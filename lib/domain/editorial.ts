@@ -24,7 +24,7 @@ export type Draft = {
 async function permission(
   tx: Sql,
   ctx: StaffContext,
-  role: StaffRole | "read",
+  role: StaffRole | "editorial",
 ) {
   return requireStaff(tx, ctx.actor, ctx.playerToken, ctx.staffToken, role);
 }
@@ -48,7 +48,7 @@ function revision(d: Draft, n: number) {
 }
 export async function listEditorial(db: Database, ctx: StaffContext) {
   return db.transaction(async (tx) => {
-    await permission(tx, ctx, "read");
+    await permission(tx, ctx, "editorial");
     const drafts = (
       await tx.query(
         "SELECT id,case_key,content->>'title' AS title,state,revision,updated_at,version_id FROM app_private.editorial_drafts ORDER BY updated_at DESC,id LIMIT 100",
@@ -74,13 +74,13 @@ export async function listEditorial(db: Database, ctx: StaffContext) {
 }
 export async function readDraft(db: Database, ctx: StaffContext, id: string) {
   return db.transaction(async (tx) => {
-    await permission(tx, ctx, "read");
+    await permission(tx, ctx, "editorial");
     return draft(tx, id);
   });
 }
 export async function templates(db: Database, ctx: StaffContext) {
   return db.transaction(async (tx) => {
-    await permission(tx, ctx, "read");
+    await permission(tx, ctx, "editorial");
     return (
       await tx.query(
         "SELECT v.id,v.content FROM app_private.preview_fixtures f JOIN app_private.case_versions v ON v.id=f.version_id ORDER BY v.case_key",
@@ -357,7 +357,7 @@ export async function schedule(
 }
 export async function editorialAudit(db: Database, ctx: StaffContext) {
   return db.transaction(async (tx) => {
-    await permission(tx, ctx, "read");
+    await permission(tx, ctx, "editorial");
     return (
       await tx.query(
         "SELECT id,actor_id,action,entity_id,created_at FROM app_private.audit_events WHERE action LIKE 'editorial.%' ORDER BY created_at DESC,id LIMIT 100",
