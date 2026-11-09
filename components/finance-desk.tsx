@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { DisputeSummary } from "@/lib/contracts/disputes";
 import type { FinanceOrder } from "@/lib/contracts/refunds";
 import { api } from "./api";
 
@@ -9,6 +10,7 @@ export function FinanceDesk() {
   const [search, setSearch] = useState("");
   const [selection, setSelection] = useState<FinanceOrder | null>(null);
   const [providerId, setProviderId] = useState("");
+  const [disputeId, setDisputeId] = useState("");
   const [reason, setReason] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -48,7 +50,7 @@ export function FinanceDesk() {
       <h2>Finance desk</h2>
       <p>
         Paystack test orders only. Process refunds in Paystack, then reconcile
-        them here by refund ID.
+        them here by refund ID. Use a dispute ID to sync its verified status.
       </p>
       <form
         onSubmit={(event) => {
@@ -75,7 +77,7 @@ export function FinanceDesk() {
       {error && <p role="alert">{error}</p>}
       {message && <p role="status">{message}</p>}
       {orders?.length === 0 && (
-        <p>No matching orders or open refund requests.</p>
+        <p>No matching orders or open payment reviews.</p>
       )}
       <ul className="editorial-list">
         {orders?.map((o) => (
@@ -88,6 +90,7 @@ export function FinanceDesk() {
                 setSelection(o);
                 setReason("");
                 setProviderId("");
+                setDisputeId("");
               }}
             >
               {o.reference} · {o.productId}
@@ -145,6 +148,61 @@ export function FinanceDesk() {
             </label>
             <button className="button outline" type="submit" disabled={busy}>
               Verify and reconcile refund
+            </button>
+          </form>
+          <h4>Paystack disputes</h4>
+          {selection.disputes.length > 0 && (
+            <ul className="editorial-list">
+              {selection.disputes.map((d) => (
+                <li key={d.providerId}>
+                  <button
+                    type="button"
+                    className="text-button"
+                    disabled={busy}
+                    onClick={() => setDisputeId(d.providerId)}
+                  >
+                    {d.providerId} · {d.status}{" "}
+                    {d.resolution && `· ${d.resolution}`}
+                  </button>
+                  <small>
+                    {d.holdsAccess ? "Access on hold" : "Hold released"}
+                  </small>
+                </li>
+              ))}
+            </ul>
+          )}
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void run(async () => {
+                const dispute = await api<DisputeSummary>(
+                  "admin/finance/orders/" + selection.id + "/reconcile-dispute",
+                  "POST",
+                  { providerId: disputeId },
+                );
+                const items = await api<FinanceOrder[]>(
+                  ordersUrl(selection.id),
+                );
+                setSelection(items[0] ?? null);
+                setOrders(items);
+                setMessage(
+                  "Paystack dispute verified: " + dispute.status + ".",
+                );
+              });
+            }}
+          >
+            <label>
+              Paystack dispute ID{" "}
+              <input
+                value={disputeId}
+                onChange={(e) => setDisputeId(e.target.value)}
+                inputMode="numeric"
+                pattern="[1-9][0-9]{0,19}"
+                required
+              />
+            </label>
+            <button type="submit" className="button outline" disabled={busy}>
+              Verify and sync dispute
             </button>
           </form>
           {selection.requestId && (
