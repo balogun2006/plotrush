@@ -6,7 +6,7 @@ PlotRush is a mobile-first mystery game platform: solve a case alone, return for
 
 ## Project status
 
-**Playable draft preview.** Free solo and 2–6 player group tutorials, themed discovery, private notes/interests, verified-email account foundations and server-priced orders are implemented. Paystack sandbox checkout, signed webhook inbox, reconciliation and optional receipt delivery are integrated behind disabled flags. Real provider credentials and test transactions are still required. A protected editorial studio now supports draft authoring, independent review, immutable releases and a UTC calendar behind a disabled publication switch. Premium gameplay, live billing, ads and approved launch content remain outstanding. [Try staging](https://plotrush-web-staging.up.railway.app/) and see [implementation status](docs/implementation-status.md).
+**Playable draft preview.** Free solo and 2–6 player group tutorials, themed discovery, private notes/interests, verified-email account foundations and server-priced orders are implemented. Paystack sandbox checkout, signed webhook inbox, reconciliation and optional receipt delivery are integrated behind disabled flags. Real provider credentials and test transactions are still required. A protected editorial studio now supports draft authoring, independent review, immutable releases and a UTC calendar behind a disabled publication switch. Premium solo and group gameplay is available in the test harness behind a disabled staging switch. Live billing, ads and approved launch content remain outstanding. [Try staging](https://plotrush-web-staging.up.railway.app/) and see [implementation status](docs/implementation-status.md).
 
 ## Planned experience
 
