@@ -13,6 +13,7 @@ export async function migrate(db: Database) {
       "005_editorial.sql",
       "006_daily.sql",
       "007_refunds.sql",
+      "008_disputes.sql",
     ])
       await tx.query(await readFile("db/migrations/" + file, "utf8"));
   });
