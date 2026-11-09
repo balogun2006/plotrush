@@ -200,3 +200,11 @@ Continue with complete MN-003 account/role foundations and MN-007–010 durable 
 - Migration007 adds private request and refund tables and the finance role. The existing staff enrollment and Paystack test key are sufficient. An authorised operator can grant the finance role using the existing staff command.
 - Staff initiate refunds separately in the Paystack dashboard. Automatic provider refund initiation, dispute reconciliation, revenue exports and provider-backed staging acceptance remain outstanding in MN-013.
 - All 77 automated tests and 14 existing desktop and mobile browser scenarios passed. TypeScript, lint, generated OpenAPI, fixture validation and the production build passed. Refund-specific tests use a disposable database and synthetic provider responses.
+
+## Paystack dispute reconciliation
+
+- Finance and admin staff with fresh MFA can sync a dispute ID from Paystack against a paid test order. The lookup matches the dispute ID, transaction ID, payment reference, amount, currency and environment. Only the dispute summary is retained, with no customer or card payload.
+- A verified dispute places the original purchase on hold. A resolved decline with no refund clears that dispute's hold. All holds must clear before new premium starts can resume. Accepted or unclear outcomes remain on hold for finance review. A disputed refund amount is shown separately from confirmed refund totals.
+- Existing investigations and completed results remain accessible. Dispute reconciliation does not modify refund revocations or other entitlement states. Older provider records cannot overwrite newer ones, and duplicate syncs do not add repeated audit events.
+- Migration008 adds the private dispute table and a separate entitlement hold. Sync is staff-triggered. Paystack dispute webhooks, provider-side decisions and real provider acceptance testing remain outside this increment.
+- Verification passed locally with 79 automated tests, 14 existing browser scenarios, TypeScript, lint, OpenAPI, fixture validation and the production build. New tests use simulated provider responses, including duplicate and stale status updates, payment mismatches and refund interactions. [Paystack Dispute API](https://paystack.com/docs/api/dispute/).
