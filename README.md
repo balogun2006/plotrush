@@ -101,4 +101,4 @@ Open `/rooms` to create or join The Missing Microphone. Use separate browser pro
 
 ## Editorial studio
 
-`/admin` requires an operator-granted verified account and authenticator verification. There is no default administrator. [Staff setup](docs/STAFF-SETUP.md) explains provisioning and the publication switch; [ADR005](docs/ADR-005-EDITORIAL.md) records immutable versions, preview isolation and remaining scope. Calendar scheduling is editorial only; public daily selection and streaks remain forthcoming.
+`/admin` requires an operator-granted verified account and authenticator verification. There is no default administrator. [Staff setup](docs/STAFF-SETUP.md) explains provisioning and the publication switch; [ADR005](docs/ADR-005-EDITORIAL.md) records immutable versions, preview isolation and remaining scope. Schedule an approved free solo mini-case in the UTC calendar to make it playable from the homepage. Players can resume dated attempts, and an empty or withdrawn slot offers a clearly labelled archive case. The public preview needs a reviewed content queue to offer a new daily mystery consistently.
