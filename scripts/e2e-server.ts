@@ -44,6 +44,7 @@ const child = spawn(
       APP_MODE: "test",
       PREVIEW_MODE: "true",
       FEATURE_EDITORIAL_PUBLISH: "true",
+      FEATURE_PREMIUM_PLAY: "true",
       DATABASE_URL: url,
       APP_URL: "http://127.0.0.1:3000",
       PAYSTACK_ENVIRONMENT: "test",
