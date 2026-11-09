@@ -237,6 +237,29 @@ it("defers cross-account merge during active groups, preserves membership after 
     ).rows[0].principal_id,
   ).toBe(target);
 });
+it("signs into an existing account without disturbing its active room", async () => {
+  const email = "existing-room@example.test",
+    target = await verified(email),
+    source = await guest(),
+    { room } = await createRoom(db, target, "missing-mic", "Returning host"),
+    challenge = await requestCode(db, source.id, email, secret, mailer);
+
+  const result = await verifyCode(
+    db,
+    source.id,
+    challenge.challengeId,
+    inbox.get(challenge.challengeId)!,
+    secret,
+    true,
+  );
+
+  expect(await identity(db, result.token)).toBe(target);
+  expect(await roomAction(db, target, room.id)).toMatchObject({
+    phase: "lobby",
+    seat: room.seat,
+    stateVersion: room.stateVersion,
+  });
+});
 it("sign-out revokes only the current token and mocks fail closed for deployed origins", async () => {
   const g = await guest();
   await signOut(db, g.token);
