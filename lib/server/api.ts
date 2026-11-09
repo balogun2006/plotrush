@@ -44,6 +44,12 @@ import {
   requestCodeInput,
   verifyCodeInput,
 } from "../contracts/account-commerce";
+import {
+  checkoutConfig,
+  paystackConfig,
+  PaystackClient,
+} from "../providers/paystack";
+import { checkout, verifyOrder } from "../domain/payment-operations";
 const version = z.number().int().positive();
 const cookie = "plotrush_guest";
 async function body(req: NextRequest) {
@@ -123,9 +129,16 @@ export async function handle(req: NextRequest, path: string[]) {
       return json(actor ? await account(db, actor) : { kind: "guest" });
     if (req.method === "GET" && route === "products")
       return json({
-        products: await products(db, localAdaptersAllowed()),
+        products: await products(
+          db,
+          localAdaptersAllowed(),
+          checkoutConfig().sandboxCatalogue,
+        ),
         development: localAdaptersAllowed(),
-        checkoutAvailable: localAdaptersAllowed(),
+        checkoutAvailable: localAdaptersAllowed() || checkoutConfig().available,
+        paymentEnvironment: localAdaptersAllowed()
+          ? "development"
+          : checkoutConfig().environment,
       });
     if (req.method === "GET" && route === "cases") {
       const f = parseFilters(req.nextUrl.searchParams);
@@ -299,8 +312,9 @@ export async function handle(req: NextRequest, path: string[]) {
     if (req.method === "GET" && route === "me/ownership")
       return json(await ownership(db, actor));
     if (req.method === "POST" && route === "orders") {
+      const config = checkoutConfig();
       assert(
-        localAdaptersAllowed(),
+        localAdaptersAllowed() || config.available,
         503,
         "CHECKOUT_DISABLED",
         "Checkout is not available in this preview.",
@@ -310,8 +324,9 @@ export async function handle(req: NextRequest, path: string[]) {
           db,
           actor,
           orderInput.parse(await body(req)),
-          "development",
-          true,
+          localAdaptersAllowed() ? "development" : "test",
+          localAdaptersAllowed(),
+          config.sandboxCatalogue,
         ),
         201,
       );
@@ -320,6 +335,34 @@ export async function handle(req: NextRequest, path: string[]) {
       const id = z.uuid().parse(path[1]);
       if (req.method === "GET" && path.length === 2)
         return json(await readOrder(db, actor, id));
+      if (
+        req.method === "POST" &&
+        path.length === 3 &&
+        ["checkout", "verify"].includes(path[2])
+      ) {
+        z.object({})
+          .strict()
+          .parse(await body(req));
+        const config = paystackConfig();
+        assert(
+          config,
+          503,
+          "PAYMENT_CONFIG_REQUIRED",
+          "Payment verification is not configured.",
+        );
+        const provider = new PaystackClient(config);
+        await limit(db, "payment-verify:" + actor, 10, 60);
+        if (path[2] === "checkout") {
+          assert(
+            checkoutConfig().available,
+            503,
+            "CHECKOUT_DISABLED",
+            "New checkout is temporarily unavailable.",
+          );
+          return json(await checkout(db, actor, id, provider));
+        }
+        return json(await verifyOrder(db, actor, id, provider));
+      }
       if (
         req.method === "POST" &&
         path[2] === "development-payment" &&

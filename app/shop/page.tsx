@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { api } from "../../components/api";
 type Product = {
   id: string;
@@ -20,10 +21,12 @@ type Order = {
   mode: string;
 };
 export default function Shop() {
+  const router = useRouter();
   const [data, setData] = useState<{
       products: Product[];
       development: boolean;
       checkoutAvailable: boolean;
+      paymentEnvironment: string | null;
     } | null>(null),
     [order, setOrder] = useState<Order | null>(null),
     [error, setError] = useState(""),
@@ -33,6 +36,7 @@ export default function Shop() {
       products: Product[];
       development: boolean;
       checkoutAvailable: boolean;
+      paymentEnvironment: string | null;
     }>("products")
       .then(setData)
       .catch((e) => setError(e.message));
@@ -41,13 +45,13 @@ export default function Shop() {
     setBusy(true);
     setError("");
     try {
-      setOrder(
-        await api<Order>("orders", "POST", {
-          productId: p.id,
-          priceVersionId: p.priceVersionId,
-          idempotencyKey: crypto.randomUUID(),
-        }),
-      );
+      const created = await api<Order>("orders", "POST", {
+        productId: p.id,
+        priceVersionId: p.priceVersionId,
+        idempotencyKey: crypto.randomUUID(),
+      });
+      if (data?.development) setOrder(created);
+      else router.push("/orders/" + created.id);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -92,8 +96,9 @@ export default function Shop() {
       ) : (
         <>
           <p className="room-message">
-            Development payment laboratory · No real charge, live checkout or
-            playable premium content. Prices are test fixtures.
+            {data.development
+              ? "Development payment laboratory · No real charge, live checkout or playable premium content. Prices are test fixtures."
+              : "Paystack sandbox · Test payments only. These draft cases do not unlock released premium gameplay."}
           </p>
           {order ? (
             <section className="room-panel">
@@ -132,7 +137,7 @@ export default function Shop() {
               <section className="room-panel" key={p.id}>
                 <h2>The Missing Wedding Gift · {p.mode}</h2>
                 <p>
-                  Test price:{" "}
+                  {data.development ? "Test price:" : "Sandbox price:"}{" "}
                   {new Intl.NumberFormat("en-NG", {
                     style: "currency",
                     currency: p.currency,
@@ -147,7 +152,8 @@ export default function Shop() {
                   disabled={busy}
                   onClick={() => buy(p)}
                 >
-                  Create demo {p.mode} order
+                  {data.development ? "Create demo" : "Create sandbox"} {p.mode}{" "}
+                  order
                 </button>
               </section>
             ))

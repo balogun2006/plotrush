@@ -42,7 +42,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <div className="preview-bar">
           <span className="status-dot" /> EARLY PREVIEW{" "}
           <span className="preview-copy">
-            Fictional draft cases · free to play · no ads or payments
+            Fictional draft cases · free cases · no ads or live charges
           </span>
         </div>
         <main id="main">{children}</main>

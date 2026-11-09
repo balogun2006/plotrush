@@ -123,3 +123,29 @@ Continue with complete MN-003 account/role foundations and MN-007–010 durable 
 - Preview: https://plotrush-web-staging.up.railway.app/account . Screenshot `docs/previews/plotrush-account-preview-1794004358345.jpg`.
 - Railway remains pinned to the source above; later evidence-only commits do not redeploy.
 - Email activation still needs a real RESEND_API_KEY, EMAIL_FROM on a verified sending domain and FEATURE_EMAIL_AUTH=true. AUTH_CODE_SECRET is already generated on staging and should not be replaced with a placeholder. Actual delivery must be smoke-tested before acquisition. Paystack sandbox/webhook/reconciliation/receipts and paid gameplay remain next dependent work; payment placeholders are preserved and do not enable checkout.
+
+## Paystack sandbox integration increment
+
+- Branch `feat/paystack-integration` builds on the unmerged account/order foundation (PR #3). No previous PR was merged as part of this increment.
+- Added hosted Paystack checkout with server-generated stable references, initialization leases, allowlisted checkout redirects, owner-only return/status checks and explicit sandbox products. Live checkout remains unavailable in this draft preview.
+- Added bounded raw-byte webhook signature verification, timestamp/rotation support and opt-in legacy compatibility; durable deduplicated PostgreSQL inbox; bounded reconciliation worker with crash-recoverable leases; independent receipt outbox. Amount/currency/environment/reference and provider transaction uniqueness remain server enforced. Query parameters never grant ownership.
+- Migration004 is additive and idempotent. Fulfilment locks order before attempt to preserve consistent lock ordering. Duplicate purchases receive a manual-review audit event; no automatic refunds are implemented.
+- 59 domain/provider/SQL tests passed, including initialization races/uncertainty, large provider IDs, signature tampering/rotation/replay, inbox deduplication, pending retries, permanent mismatches, abandoned leases, late success, negative owner access and independent receipt retry.
+- TypeScript, ESLint, generated OpenAPI drift check, production build and five structural fixture checks passed. A stale local Turbopack cache initially failed to open; rebuilding with a fresh generated cache succeeded without source changes.
+- Browser tests exercise the real compiled webhook route with synthetic signatures and ignored events, alongside existing solo, account and four-browser group journeys. Provider HTTP calls in domain tests are controlled transports; no actual Paystack or Resend operation is claimed.
+- [ADR004](ADR-004-PAYSTACK.md) records architecture and remaining scope. [Railway variable runbook](RAILWAY-VARIABLES.md) lists owner values, activation switches, endpoint configuration, worker references and smoke/recovery steps.
+- Real API/signing keys and a verified email sender are still required before external sandbox acceptance checks. Premium gameplay, refunds, editorial approval, ad integrations and production operational certification remain open; this does not complete all MN-012 release criteria.
+
+- Final isolated Playwright run: all12 desktop/mobile scenarios passed against the compiled production build and PostgreSQL wire adapter. Earlier runs found missing test-session/version setup and shared guest-rate-bucket exhaustion; the fixture now uses a separate synthetic address, preserving application limits. No automated external-origin acceptance test is claimed.
+
+### Verified Paystack increment staging release
+
+- Application source `88e53c44afc8058832c325cfef347b455514e185` matched all103 tested project files before deployment. Both services are pinned to this source; later documentation/evidence commits do not deploy.
+- Web deployment `fdd7748a-7729-4f37-b3f3-8b5c4d70915c` reached SUCCESS. Runtime logs confirmed the additive schema/import migration before application readiness, and hosted `/api/health` returned `{"status":"ok","mode":"draft-preview"}`.
+- Worker service `plotrush-payments-worker` (`12435406-974e-416f-904a-39e0f6aa299d`) deployment `5bf6c821-3752-476a-aa64-bb1d45c6bf88` reached SUCCESS. Its read-back configuration is a private five-minute UTC cron, restart NEVER, no public domain/healthcheck, `pnpm payments:work` and references to the existing web credentials. No real provider operation has been performed.
+- Hosted `/shop` shows premium cases in preparation and exposes no mock checkout. New Paystack switches remain false; existing key names and auth secret were preserved.
+- Hosted manual regression: free Playlist Switch started without email/payment/invitation/ad, evidence opened, private notes survived reload, and a correct verdict produced100/100. The saved result appeared in My cases alongside two earlier completed Last Slice attempts after migration. This hosted smoke is distinct from the12 automated local browser scenarios.
+- GitHub CI passed for both PR and push on the deployed source: https://github.com/balogun2006/plotrush/actions/runs/42389045837 and https://github.com/balogun2006/plotrush/actions/runs/42388968742 .
+- Draft PR #4: https://github.com/balogun2006/plotrush/pull/4 . It is based on `feat/accounts-commerce` (PR #3) for a focused integration diff; merge #3 first and retarget #4 to main when requested. Neither PR was merged in this increment.
+- Screenshot: `docs/previews/plotrush-paystack-staging-1794067437062.jpg`. Staging preview: https://plotrush-web-staging.up.railway.app/library .
+- Railway environment status confirmed the worker's first scheduled execution **succeeded** at `2026-11-07T16:05:08.529Z`, with zero running/crashed worker replicas afterward. Web and Postgres were online; no issues, failures or pending work were reported. This confirms cron startup/exit with current configuration, not a real Paystack transaction or delivered receipt.

@@ -8,5 +8,15 @@
   "healthcheckPath": "/api/health",
   "healthcheckTimeout": 120,
   "restartPolicyType": "ON_FAILURE",
-  "restartPolicyMaxRetries": 3
+  "restartPolicyMaxRetries": 3,
+  "paymentWorker": {
+    "serviceId": "12435406-974e-416f-904a-39e0f6aa299d",
+    "name": "plotrush-payments-worker",
+    "buildCommand": "pnpm api:check",
+    "startCommand": "pnpm payments:work",
+    "cronSchedule": "*/5 * * * *",
+    "restartPolicyType": "NEVER",
+    "preDeployCommand": [],
+    "publicDomain": false
+  }
 }
