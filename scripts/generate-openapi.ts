@@ -1,4 +1,8 @@
 import {
+  disputeSummary,
+  reconcileDisputeInput,
+} from "../lib/contracts/disputes";
+import {
   financeOrderSchema,
   reconcileRefundInput,
   refundRequestInput,
@@ -96,6 +100,14 @@ const staffPaths = {
         "200": response(z.array(financeOrderSchema)),
         "403": { description: "Finance role and fresh MFA required" },
       },
+    },
+  },
+  "/admin/finance/orders/{id}/reconcile-dispute": {
+    parameters: draftId,
+    post: {
+      ...post(reconcileDisputeInput, disputeSummary),
+      security: staffSecurity,
+      "x-staff-role": "finance",
     },
   },
   "/admin/finance/orders/{id}/reconcile-refund": {
