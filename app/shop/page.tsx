@@ -2,11 +2,13 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { PremiumPlay } from "../../components/premium-play";
 import { api } from "../../components/api";
 type Product = {
   id: string;
+  title: string;
   caseId: string;
-  mode: string;
+  mode: "solo" | "group";
   priceVersionId: string;
   amountMinor: number;
   currency: string;
@@ -16,9 +18,11 @@ type Order = {
   productId: string;
   amountMinor: number;
   currency: string;
+  caseId: string;
+  playAvailable?: boolean;
   status: string;
   environment: string;
-  mode: string;
+  mode: "solo" | "group";
 };
 export default function Shop() {
   const router = useRouter();
@@ -82,7 +86,7 @@ export default function Shop() {
       )}
       {!data ? (
         <p role="status">Opening the case shelf…</p>
-      ) : !data.checkoutAvailable ? (
+      ) : !data.checkoutAvailable || !data.products.length ? (
         <section className="room-panel">
           <h2>Premium cases are in preparation.</h2>
           <p>
@@ -97,8 +101,8 @@ export default function Shop() {
         <>
           <p className="room-message">
             {data.development
-              ? "Development payment laboratory · No real charge, live checkout or playable premium content. Prices are test fixtures."
-              : "Paystack sandbox · Test payments only. These draft cases do not unlock released premium gameplay."}
+              ? "Development checkout · Simulated payments and test prices."
+              : "Paystack sandbox · Test payments and preview cases."}
           </p>
           {order ? (
             <section className="room-panel">
@@ -118,10 +122,15 @@ export default function Shop() {
                 Status: {order.status}. Environment: {order.environment}.
               </p>
               {order.status === "paid" ? (
-                <p role="status">
-                  Development ownership saved for this mode. This does not
-                  unlock a live premium game.
-                </p>
+                <>
+                  <p role="status">
+                    Development ownership saved for this mode.
+                  </p>
+                  {order.playAvailable && (
+                    <PremiumPlay caseId={order.caseId} mode={order.mode} />
+                  )}
+                  <Link href="/library">My cases</Link>
+                </>
               ) : (
                 <button
                   className="button lime"
@@ -135,7 +144,9 @@ export default function Shop() {
           ) : (
             data.products.map((p) => (
               <section className="room-panel" key={p.id}>
-                <h2>The Missing Wedding Gift · {p.mode}</h2>
+                <h2>
+                  {p.title} · {p.mode}
+                </h2>
                 <p>
                   {data.development ? "Test price:" : "Sandbox price:"}{" "}
                   {new Intl.NumberFormat("en-NG", {
