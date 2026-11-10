@@ -55,6 +55,52 @@ export function FinanceDesk() {
       <form
         onSubmit={(event) => {
           event.preventDefault();
+          const fields = new FormData(event.currentTarget);
+          const from = String(fields.get("from"));
+          const to = String(fields.get("to"));
+          void run(async () => {
+            const query = new URLSearchParams({ from, to });
+            const response = await fetch(
+              "/api/v1/admin/finance/revenue.csv?" + query,
+              {
+                cache: "no-store",
+              },
+            );
+            if (!response.ok) {
+              const failure = await response.json().catch(() => null);
+              throw new Error(
+                failure?.error?.message ?? "Revenue export unavailable.",
+              );
+            }
+            const url = URL.createObjectURL(await response.blob());
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = `plotrush-test-revenue-${from}-${to}.csv`;
+            link.click();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+            setMessage("Sandbox revenue CSV downloaded.");
+          });
+        }}
+      >
+        <h3>Sandbox revenue export</h3>
+        <p>
+          Choose up to 31 days. Sales use the payment date and confirmed refunds
+          use the PlotRush reconciliation date. Amounts are in minor units,
+          before fees.
+        </p>
+        <label>
+          From (UTC) <input type="date" name="from" required />
+        </label>
+        <label>
+          Through (UTC) <input type="date" name="to" required />
+        </label>
+        <button type="submit" className="button outline" disabled={busy}>
+          Download revenue CSV
+        </button>
+      </form>
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
           void run(async () => {
             const items = await api<FinanceOrder[]>(ordersUrl(search.trim()));
             setOrders(items);
