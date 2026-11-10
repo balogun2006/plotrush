@@ -29,3 +29,11 @@ export const financeOrderSchema = refundSummary.extend({
   disputes: z.array(disputeSummary),
 });
 export type FinanceOrder = z.infer<typeof financeOrderSchema>;
+
+const reportDate = z.iso.date().refine((date) => !date.startsWith("0000"));
+export const financeRevenueQuery = z
+  .object({ from: reportDate, to: reportDate })
+  .refine(({ from, to }) => {
+    const days = (Date.parse(to) - Date.parse(from)) / 86_400_000;
+    return days >= 0 && days < 31;
+  });

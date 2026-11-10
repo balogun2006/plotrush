@@ -19,6 +19,7 @@ import {
   recoverRequestedRefunds,
 } from "../lib/domain/refunds";
 import { listEditorial } from "../lib/domain/editorial";
+import { exportFinanceRevenue } from "../lib/domain/finance-revenue";
 import { read, start } from "../lib/domain/game";
 import {
   PaystackClient,
@@ -59,13 +60,17 @@ async function staff(role: StaffRole) {
   );
   return { actor: actor.id, playerToken: actor.token, staffToken };
 }
-async function paidOrder(actor: string, transactionId = randomUUID()) {
+async function paidOrder(
+  actor: string,
+  transactionId = randomUUID(),
+  mode = "solo",
+) {
   const order = await createOrder(
     db,
     actor,
     {
-      productId: caseId + "-solo",
-      priceVersionId: "demo-wedding-solo-ngn-v1",
+      productId: caseId + "-" + mode,
+      priceVersionId: `demo-wedding-${mode}-ngn-v1`,
       idempotencyKey: randomUUID(),
     },
     "test",
@@ -518,4 +523,86 @@ it("fetches the documented dispute shape and discards unrelated provider data", 
   expect(dispute.transaction.id).toBe("9223372036854775807");
   expect(dispute).not.toHaveProperty("customer");
   expect(dispute.transaction).not.toHaveProperty("authorization");
+});
+
+it("exports UTC sandbox activity by currency and mode only to finance staff with MFA", async () => {
+  const finance = await staff("finance"),
+    editor = await staff("content_editor");
+  const range = { from: "2025-02-01", to: "2025-02-01" };
+  await expect(exportFinanceRevenue(db, editor, range)).rejects.toMatchObject({
+    code: "ROLE_DENIED",
+  });
+  await expect(
+    exportFinanceRevenue(db, { ...finance, staffToken: undefined }, range),
+  ).rejects.toMatchObject({ code: "MFA_REQUIRED" });
+  for (const invalid of [
+    { from: "2025-02-30", to: "2025-03-03" },
+    { from: "2025-02-02", to: "2025-02-01" },
+    { from: "2025-01-01", to: "2025-02-01" },
+  ]) {
+    await expect(
+      exportFinanceRevenue(db, finance, invalid),
+    ).rejects.toMatchObject({ code: "REPORT_RANGE_INVALID" });
+  }
+  const sale = await paidOrder((await account()).id);
+  const olderSale = await paidOrder((await account()).id);
+  const group = await paidOrder((await account()).id, randomUUID(), "group");
+  const otherCurrency = await paidOrder((await account()).id);
+  const nextDay = await paidOrder((await account()).id);
+  const live = await paidOrder((await account()).id);
+  const nonPaystack = await paidOrder((await account()).id);
+  await db.query(
+    "UPDATE app_private.orders SET paid_at='2025-02-01T00:00:00Z' WHERE id=ANY($1::uuid[])",
+    [[sale.id, group.id, otherCurrency.id, live.id, nonPaystack.id]],
+  );
+  await db.query(
+    "UPDATE app_private.orders SET paid_at='2025-01-31T23:59:59Z' WHERE id=$1",
+    [olderSale.id],
+  );
+  await db.query(
+    "UPDATE app_private.orders SET paid_at='2025-02-02T00:00:00Z' WHERE id=$1",
+    [nextDay.id],
+  );
+  await db.query("UPDATE app_private.orders SET currency='GBP' WHERE id=$1", [
+    otherCurrency.id,
+  ]);
+  await db.query(
+    "UPDATE app_private.orders SET environment='live' WHERE id=$1",
+    [live.id],
+  );
+  await db.query(
+    "UPDATE app_private.payment_attempts SET provider='other' WHERE order_id=$1",
+    [nonPaystack.id],
+  );
+  await db.query(
+    "INSERT INTO app_private.refunds(provider_id,order_id,amount_minor,recorded_at) VALUES('601',$1,75000,'2025-02-01T00:00:00Z'),('602',$1,25000,'2025-02-01T23:59:59Z'),('603',$1,1000,'2025-02-02T00:00:00Z'),('604',$1,2000,'2025-02-03T00:00:00Z')",
+    [olderSale.id],
+  );
+  const { csv, filename } = await exportFinanceRevenue(db, finance, range);
+  expect(filename).toBe("plotrush-test-revenue-2025-02-01-2025-02-01.csv");
+  expect(csv.trimEnd().split("\r\n").slice(1)).toEqual([
+    `test,2025-02-01,2025-02-01,GBP,solo,${otherCurrency.amountMinor},0,${otherCurrency.amountMinor}`,
+    `test,2025-02-01,2025-02-01,NGN,group,${group.amountMinor},0,${group.amountMinor}`,
+    `test,2025-02-01,2025-02-01,NGN,solo,${sale.amountMinor},100000,${sale.amountMinor - 100000}`,
+  ]);
+  const { csv: followingDay } = await exportFinanceRevenue(db, finance, {
+    from: "2025-02-02",
+    to: "2025-02-02",
+  });
+  expect(followingDay).toContain(
+    `NGN,solo,${nextDay.amountMinor},1000,${nextDay.amountMinor - 1000}`,
+  );
+  const { csv: refundOnly } = await exportFinanceRevenue(db, finance, {
+    from: "2025-02-03",
+    to: "2025-02-03",
+  });
+  expect(refundOnly).toContain("NGN,solo,0,2000,-2000");
+  expect(
+    (
+      await db.query(
+        "SELECT 1 FROM app_private.audit_events WHERE actor_id=$1 AND action='finance.revenue_exported'",
+        [finance.actor],
+      )
+    ).rows,
+  ).toHaveLength(3);
 });

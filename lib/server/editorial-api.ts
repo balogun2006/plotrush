@@ -16,6 +16,7 @@ import {
   reconcileRefund,
 } from "../domain/refunds";
 import { paystackConfig, PaystackClient } from "../providers/paystack";
+import { exportFinanceRevenue } from "../domain/finance-revenue";
 import * as editorial from "../domain/editorial";
 import {
   draftInput,
@@ -145,6 +146,22 @@ export async function handleEditorial(req: NextRequest, path: string[]) {
         .max(100)
         .parse(req.nextUrl.searchParams.get("search") ?? "");
       return reply(await financeOrders(db, ctx, search));
+    }
+    if (route === "finance/revenue.csv" && req.method === "GET") {
+      const query = req.nextUrl.searchParams;
+      const report = await exportFinanceRevenue(db, ctx, {
+        from: query.get("from"),
+        to: query.get("to"),
+      });
+      return new NextResponse(report.csv, {
+        headers: {
+          "Cache-Control": "private, no-store",
+          "Content-Type": "text/csv; charset=utf-8",
+          "Content-Disposition":
+            'attachment; filename="' + report.filename + '"',
+          "X-Content-Type-Options": "nosniff",
+        },
+      });
     }
     if (
       path[0] === "finance" &&

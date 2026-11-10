@@ -1,4 +1,5 @@
 import { test, expect, devices, type Page } from "@playwright/test";
+import { readFile } from "node:fs/promises";
 import { totp } from "../../lib/security/totp";
 async function call(
   page: Page,
@@ -21,7 +22,7 @@ async function call(
   );
   return { status: () => result.status, json: async () => result.body };
 }
-async function signIn(page: Page, email: string) {
+async function signIn(page: Page, email: string, desk = "Case desk") {
   await page.goto("/account");
   await page.getByLabel("Email address").fill(email);
   await page
@@ -54,20 +55,55 @@ async function signIn(page: Page, email: string) {
     .getByRole("button", { name: "Verify staff access", exact: true })
     .click();
   await expect(
-    page.getByRole("heading", { name: "Case desk", exact: true }),
+    page.getByRole("heading", { name: desk, exact: true }),
   ).toBeVisible();
 }
+
+test("finance staff can download a private sandbox CSV after MFA", async ({
+  page,
+}, info) => {
+  const endpoint =
+    "/api/v1/admin/finance/revenue.csv?from=2025-02-01&to=2025-02-01";
+  const denied = await page.request.get(endpoint);
+  expect(denied.status()).toBe(401);
+  await page
+    .context()
+    .setExtraHTTPHeaders({
+      "X-Forwarded-For": `finance-report-${info.project.name}`,
+    });
+  await signIn(
+    page,
+    `studio-finance-${info.project.name}@example.test`,
+    "Finance desk",
+  );
+  await page.getByLabel("From (UTC)").fill("2025-02-01");
+  await page.getByLabel("Through (UTC)").fill("2025-02-01");
+  const response = page.waitForResponse((r) => r.url().endsWith(endpoint));
+  const download = page.waitForEvent("download");
+  await page
+    .getByRole("button", { name: "Download revenue CSV", exact: true })
+    .click();
+  const csv = await response;
+  expect(csv.status()).toBe(200);
+  expect(csv.headers()["cache-control"]).toBe("private, no-store");
+  expect(csv.headers()["content-type"]).toContain("text/csv");
+  const file = await download;
+  expect(file.suggestedFilename()).toBe(
+    "plotrush-test-revenue-2025-02-01-2025-02-01.csv",
+  );
+  expect(await readFile((await file.path())!, "utf8")).toBe(
+    "environment,from_utc,to_utc,currency,play_mode,gross_minor,confirmed_refund_minor,net_before_fees_minor\r\n",
+  );
+});
 test("independent staff draft, review, publish and withdraw a version without exposing solutions to players", async ({
   browser,
   baseURL,
   page,
 }, info) => {
   test.setTimeout(120000);
-  await page
-    .context()
-    .setExtraHTTPHeaders({
-      "X-Forwarded-For": `daily-guest-${info.project.name}`,
-    });
+  await page.context().setExtraHTTPHeaders({
+    "X-Forwarded-For": `daily-guest-${info.project.name}`,
+  });
   const denied = await page.request.get("/api/v1/admin/templates");
   expect(denied.status()).toBe(401);
   expect(JSON.stringify(await denied.json())).not.toContain("explanation");
