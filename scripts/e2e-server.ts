@@ -18,7 +18,7 @@ await migrate(client);
 await seedDrafts(client);
 // Only the disposable loopback test database receives synthetic staff accounts.
 for (const project of ["chromium", "mobile"])
-  for (const role of ["editor", "publisher"]) {
+  for (const role of ["editor", "publisher", "finance"]) {
     const id = randomUUID();
     await client.query("INSERT INTO app_private.principals(id) VALUES($1)", [
       id,
@@ -29,7 +29,7 @@ for (const project of ["chromium", "mobile"])
     );
     await client.query(
       "INSERT INTO app_private.staff_members(principal_id,roles) VALUES($1,$2)",
-      [id, [`content_${role}`]],
+      [id, [role === "finance" ? role : `content_${role}`]],
     );
   }
 await client.close();
