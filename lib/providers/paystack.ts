@@ -67,8 +67,9 @@ const id = z
     z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
   ])
   .transform(String);
+const refundId = id.pipe(z.string().regex(/^[1-9][0-9]{0,19}$/));
 const refundRecord = z.object({
-  id,
+  id: refundId,
   transaction: z.union([id, z.object({ id }).transform((tx) => tx.id)]),
   domain: z.enum(["test", "live"]),
   amount: z.number().int().positive().max(100000000),
@@ -89,6 +90,16 @@ export type VerifiedRefund = {
   currency: string;
   status: z.infer<typeof refundRecord>["status"];
 };
+function verifiedRefund(record: z.infer<typeof refundRecord>): VerifiedRefund {
+  return {
+    id: record.id,
+    transactionId: record.transaction,
+    environment: record.domain,
+    amountMinor: record.amount,
+    currency: record.currency,
+    status: record.status,
+  };
+}
 const disputeRecord = z.object({
   id: id.pipe(disputeId),
   domain: z.enum(["test", "live"]),
@@ -221,7 +232,10 @@ export class PaystackClient {
       "Use a numeric Paystack refund ID.",
     );
     const result = z
-      .object({ status: z.literal(true), data: refundRecord })
+      .object({
+        status: z.literal(true),
+        data: refundRecord.extend({ id: refundId.optional() }),
+      })
       .safeParse(await this.call("/refund/" + providerId));
     assert(
       result.success,
@@ -230,14 +244,39 @@ export class PaystackClient {
       "Paystack returned an invalid refund record.",
     );
     const r = result.data.data;
-    return {
-      id: r.id,
-      transactionId: r.transaction,
-      environment: r.domain,
-      amountMinor: r.amount,
-      currency: r.currency,
-      status: r.status,
-    };
+    // Paystack's documented fetch response can omit the ID in the URL.
+    return verifiedRefund({ ...r, id: r.id ?? providerId });
+  }
+  async listRefunds(transactionId: string, currency: string) {
+    const pageSize = 20;
+    const refunds: VerifiedRefund[] = [];
+    for (let page = 1; page <= 3; page++) {
+      const query = new URLSearchParams({
+        transaction: transactionId,
+        currency,
+        perPage: String(pageSize),
+        page: String(page),
+      });
+      const result = z
+        .object({
+          status: z.literal(true),
+          data: z.array(refundRecord).max(pageSize),
+        })
+        .safeParse(await this.call("/refund?" + query));
+      assert(
+        result.success,
+        503,
+        "PROVIDER_UNAVAILABLE",
+        "Paystack returned an invalid refund list.",
+      );
+      refunds.push(...result.data.data.map(verifiedRefund));
+      if (result.data.data.length < pageSize) return refunds;
+    }
+    throw new AppError(
+      409,
+      "REFUND_LIST_LIMIT",
+      "This order requires manual refund review.",
+    );
   }
   async initialize(input: {
     reference: string;

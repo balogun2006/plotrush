@@ -16,6 +16,7 @@ import {
   reconcileRefund,
   requestRefund,
   closeRefundRequest,
+  recoverRequestedRefunds,
 } from "../lib/domain/refunds";
 import { listEditorial } from "../lib/domain/editorial";
 import { read, start } from "../lib/domain/game";
@@ -84,6 +85,91 @@ async function paidOrder(actor: string, transactionId = randomUUID()) {
   await fulfilPayment(db, verified);
   return { ...order, payment: verified };
 }
+
+it("recovers matching refunds for open sandbox requests and preserves investigations", async () => {
+  const owner = await account();
+  const order = await paidOrder(owner.id);
+  const attempt = await start(db, owner.id, caseId, policy);
+  const refund: VerifiedRefund = {
+    id: "501",
+    transactionId: order.payment.transactionId,
+    environment: "test",
+    currency: order.currency,
+    amountMinor: order.amountMinor / 2,
+    status: "processed",
+  };
+  const listRefunds = vi.fn<() => Promise<VerifiedRefund[]>>();
+  const provider = { config: { environment: "test" } as const, listRefunds };
+  const due = () =>
+    db.query(
+      "UPDATE app_private.refund_requests SET next_reconcile_at=now() WHERE order_id=$1",
+      [order.id],
+    );
+  expect((await recoverRequestedRefunds(db, provider)).checked).toBe(0);
+  await requestRefund(db, owner.id, order.id, "Recover a test refund");
+  expect(
+    (
+      await recoverRequestedRefunds(db, {
+        ...provider,
+        config: { environment: "live" },
+      })
+    ).checked,
+  ).toBe(0);
+  expect(listRefunds).not.toHaveBeenCalled();
+  listRefunds.mockRejectedValueOnce(new Error("Timed out"));
+  expect(await recoverRequestedRefunds(db, provider)).toMatchObject({
+    checked: 1,
+    unavailable: 1,
+  });
+  expect((await recoverRequestedRefunds(db, provider)).checked).toBe(0);
+  await due();
+  listRefunds.mockResolvedValueOnce([
+    refund,
+    { ...refund, id: "502", currency: "GBP" },
+  ]);
+  expect(await recoverRequestedRefunds(db, provider)).toMatchObject({
+    recorded: 0,
+    mismatches: 1,
+  });
+  expect((await readOrder(db, owner.id, order.id)).refundedMinor).toBe(0);
+  await due();
+  const second = { ...refund, id: "502" };
+  listRefunds.mockResolvedValueOnce([
+    refund,
+    { ...second, status: "processing" },
+  ]);
+  expect(await recoverRequestedRefunds(db, provider)).toMatchObject({
+    recorded: 1,
+  });
+  expect(listRefunds).toHaveBeenLastCalledWith(
+    order.payment.transactionId,
+    order.currency,
+  );
+  expect((await start(db, owner.id, caseId, policy)).id).toBe(attempt.id);
+  await due();
+  listRefunds.mockResolvedValue([refund, second]);
+  const recovery = await Promise.all([
+    recoverRequestedRefunds(db, provider),
+    recoverRequestedRefunds(db, provider),
+  ]);
+  expect(recovery.map((r) => r.recorded).sort()).toEqual([0, 1]);
+  expect(await readOrder(db, owner.id, order.id)).toMatchObject({
+    refundedMinor: order.amountMinor,
+    refundRequested: false,
+  });
+  await expect(start(db, owner.id, caseId, policy)).rejects.toMatchObject({
+    code: "PURCHASE_REQUIRED",
+  });
+  expect((await read(db, owner.id, attempt.id)).id).toBe(attempt.id);
+  expect(
+    (
+      await db.query(
+        "SELECT id FROM app_private.audit_events WHERE entity_id=$1 AND action='refund.auto_reconciled'",
+        [order.id],
+      )
+    ).rows,
+  ).toHaveLength(2);
+});
 
 it("isolates refund requests, deduplicates retries and protects the queue and editorial canon", async () => {
   const owner = await account(),
@@ -239,7 +325,7 @@ it("reads a provider refund over GET without losing large numeric transaction ID
       expect(url).toBe("https://api.paystack.co/refund/41");
       expect(init?.method).toBe("GET");
       return new Response(
-        '{"status":true,"data":{"id":41,"transaction":9223372036854775807,"domain":"test","currency":"NGN","amount":200000,"status":"processed"}}',
+        '{"status":true,"data":{"transaction":9223372036854775807,"domain":"test","currency":"NGN","amount":200000,"status":"processed"}}',
       );
     },
   );
@@ -251,6 +337,59 @@ it("reads a provider refund over GET without losing large numeric transaction ID
     amountMinor: 200000,
     status: "processed",
   });
+});
+
+it("pages through Paystack refunds filtered by transaction ID and currency", async () => {
+  const transaction = "9223372036854775807";
+  const transport = vi.fn<typeof fetch>();
+  const record = {
+    transaction,
+    domain: "test",
+    amount: 100,
+    currency: "NGN",
+    status: "processed",
+  };
+  transport
+    .mockResolvedValueOnce(
+      Response.json({
+        status: true,
+        data: Array.from({ length: 20 }, (_, i) => ({ ...record, id: i + 1 })),
+      }),
+    )
+    .mockResolvedValueOnce(
+      Response.json({ status: true, data: [{ ...record, id: 21 }] }),
+    );
+  const client = new PaystackClient(
+    {
+      environment: "test",
+      secret: "sk_test_demo",
+      appUrl: "https://plotrush.example",
+      allowLegacy: false,
+    },
+    transport,
+  );
+  const refunds = await client.listRefunds(transaction, "NGN");
+  expect(refunds).toHaveLength(21);
+  expect(refunds.at(-1)).toMatchObject({
+    id: "21",
+    transactionId: transaction,
+  });
+  expect(
+    transport.mock.calls.map(([url, init]) => [String(url), init?.method]),
+  ).toEqual([
+    [
+      "https://api.paystack.co/refund?transaction=" +
+        transaction +
+        "&currency=NGN&perPage=20&page=1",
+      "GET",
+    ],
+    [
+      "https://api.paystack.co/refund?transaction=" +
+        transaction +
+        "&currency=NGN&perPage=20&page=2",
+      "GET",
+    ],
+  ]);
 });
 
 it("holds access for matched Paystack disputes and releases only after every hold clears", async () => {

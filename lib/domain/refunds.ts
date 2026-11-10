@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { Database, Sql } from "../db/types";
 import type { FinanceOrder } from "../contracts/refunds";
 import type { VerifiedRefund } from "../providers/paystack";
-import { assert } from "./errors";
+import { AppError, assert } from "./errors";
 import { lockPrincipal } from "./identity";
 import { audit, requireStaff } from "./staff";
 
@@ -102,25 +102,51 @@ export async function reconcileRefund(
 ) {
   await requireFinance(db, ctx);
   const refund = await provider.fetchRefund(providerId);
+  assert(
+    refund.id === providerId,
+    409,
+    "REFUND_MISMATCH",
+    "The Paystack refund does not match this order.",
+  );
   return db.transaction(async (tx) => {
     await requireFinance(tx, ctx);
-    const { rows } = await tx.query<{
-      amount: number;
-      currency: string;
-      transaction_id: string;
-    }>(
-      `SELECT o.amount_minor::integer AS amount,o.currency,p.transaction_id
-       FROM app_private.orders o
-       JOIN app_private.payment_attempts p ON p.order_id=o.id AND p.provider='paystack' AND p.status='succeeded'
-       WHERE o.id=$1 AND o.status='paid' AND o.environment='test'
-       FOR UPDATE OF o`,
-      [orderId],
+    const { refundedMinor } = await recordRefunds(
+      tx,
+      orderId,
+      [refund],
+      ctx.actor,
     );
-    const order = rows[0];
-    assert(order, 404, "NOT_FOUND", "A paid Paystack test order is required.");
+    return { status: refund.status, refundedMinor };
+  });
+}
+
+async function recordRefunds(
+  tx: Sql,
+  orderId: string,
+  refunds: VerifiedRefund[],
+  staffActor?: string,
+) {
+  const { rows } = await tx.query<{
+    amount: number;
+    currency: string;
+    transaction_id: string;
+    buyer_id: string;
+  }>(
+    `SELECT o.amount_minor::integer AS amount,o.currency,o.buyer_id,p.transaction_id
+     FROM app_private.orders o
+     JOIN app_private.payment_attempts p ON p.order_id=o.id AND p.provider='paystack' AND p.status='succeeded'
+     WHERE o.id=$1 AND o.status='paid' AND o.environment='test'
+     FOR UPDATE OF o`,
+    [orderId],
+  );
+  const order = rows[0];
+  assert(order, 404, "NOT_FOUND", "A paid Paystack test order is required.");
+  let refundedMinor = await refundedTotal(tx, orderId);
+  let recorded = 0;
+
+  for (const refund of refunds) {
     assert(
-      refund.id === providerId &&
-        refund.environment === "test" &&
+      refund.environment === "test" &&
         refund.transactionId === order.transaction_id &&
         refund.currency === order.currency &&
         Number.isSafeInteger(refund.amountMinor) &&
@@ -130,11 +156,10 @@ export async function reconcileRefund(
       "REFUND_MISMATCH",
       "The Paystack refund does not match this order.",
     );
-    const total = await refundedTotal(tx, orderId);
     const existing = (
       await tx.query<{ order_id: string; amount_minor: number }>(
         "SELECT order_id,amount_minor FROM app_private.refunds WHERE provider_id=$1",
-        [providerId],
+        [refund.id],
       )
     ).rows[0];
     if (existing) {
@@ -146,12 +171,11 @@ export async function reconcileRefund(
         "REFUND_MISMATCH",
         "Paystack returned a different record for an already recorded refund.",
       );
-      return { status: refund.status, refundedMinor: total };
+      continue;
     }
-    if (refund.status !== "processed")
-      return { status: refund.status, refundedMinor: total };
+    if (refund.status !== "processed") continue;
 
-    const refundedMinor = total + refund.amountMinor;
+    refundedMinor += refund.amountMinor;
     assert(
       refundedMinor <= order.amount,
       409,
@@ -160,8 +184,9 @@ export async function reconcileRefund(
     );
     await tx.query(
       "INSERT INTO app_private.refunds(provider_id,order_id,amount_minor) VALUES($1,$2,$3)",
-      [providerId, orderId, refund.amountMinor],
+      [refund.id, orderId, refund.amountMinor],
     );
+    recorded++;
     const full = refundedMinor === order.amount;
     if (full) {
       await tx.query(
@@ -173,15 +198,91 @@ export async function reconcileRefund(
         [orderId],
       );
     }
-    await audit(tx, ctx.actor, "refund.reconciled", orderId, {
-      providerId,
-      amountMinor: refund.amountMinor,
-      currency: order.currency,
-      refundedMinor,
-      full,
-    });
-    return { status: refund.status, refundedMinor };
+    await audit(
+      tx,
+      staffActor ?? order.buyer_id,
+      staffActor ? "refund.reconciled" : "refund.auto_reconciled",
+      orderId,
+      {
+        providerId: refund.id,
+        amountMinor: refund.amountMinor,
+        currency: order.currency,
+        refundedMinor,
+        full,
+      },
+    );
+  }
+  return { refundedMinor, recorded };
+}
+
+export async function recoverRequestedRefunds(
+  db: Database,
+  provider: {
+    config: { environment: "test" | "live" };
+    listRefunds(
+      transactionId: string,
+      currency: string,
+    ): Promise<VerifiedRefund[]>;
+  },
+) {
+  const summary = { checked: 0, recorded: 0, mismatches: 0, unavailable: 0 };
+  if (provider.config.environment !== "test") return summary;
+  const requests = await db.transaction(async (tx) => {
+    const { rows } = await tx.query<{
+      id: string;
+      order_id: string;
+      transaction_id: string;
+      currency: string;
+    }>(
+      `SELECT rr.id,o.id AS order_id,p.transaction_id,o.currency
+       FROM app_private.refund_requests rr
+       JOIN app_private.orders o ON o.id=rr.order_id AND o.status='paid' AND o.environment='test'
+       JOIN app_private.payment_attempts p ON p.order_id=o.id AND p.provider='paystack'
+        AND p.status='succeeded' AND p.transaction_id IS NOT NULL
+       WHERE rr.closed_at IS NULL AND rr.next_reconcile_at<=now()
+       ORDER BY rr.next_reconcile_at,rr.id LIMIT 5 FOR UPDATE OF rr SKIP LOCKED`,
+    );
+    for (const request of rows)
+      await tx.query(
+        "UPDATE app_private.refund_requests SET next_reconcile_at=now()+interval '5 minutes' WHERE id=$1",
+        [request.id],
+      );
+    return rows;
   });
+  summary.checked = requests.length;
+  for (const request of requests) {
+    let refunds: VerifiedRefund[];
+    try {
+      refunds = await provider.listRefunds(
+        request.transaction_id,
+        request.currency,
+      );
+    } catch (error) {
+      if (error instanceof AppError && error.code === "REFUND_LIST_LIMIT")
+        summary.mismatches++;
+      else summary.unavailable++;
+      continue;
+    }
+    try {
+      const processed = refunds.filter(
+        (refund) => refund.status === "processed",
+      );
+      if (processed.length) {
+        const result = await db.transaction((tx) =>
+          recordRefunds(tx, request.order_id, processed),
+        );
+        summary.recorded += result.recorded;
+      }
+    } catch (error) {
+      if (
+        !(error instanceof AppError) ||
+        !["REFUND_MISMATCH", "REFUND_TOTAL_EXCEEDED"].includes(error.code)
+      )
+        throw error;
+      summary.mismatches++;
+    }
+  }
+  return summary;
 }
 
 export async function closeRefundRequest(
