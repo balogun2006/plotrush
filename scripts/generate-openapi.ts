@@ -4,6 +4,7 @@ import {
 } from "../lib/contracts/disputes";
 import {
   financeOrderSchema,
+  financeRevenueQuery,
   reconcileRefundInput,
   refundRequestInput,
   closeRefundInput,
@@ -85,6 +86,29 @@ const draftId = [
   },
 ];
 const staffPaths = {
+  "/admin/finance/revenue.csv": {
+    get: {
+      security: staffSecurity,
+      "x-staff-role": "finance",
+      description:
+        "Export up to 31 inclusive UTC days of Paystack test sales and confirmed refunds by currency and play mode. Refunds use the date recorded in PlotRush. Amounts are in minor units before fees.",
+      parameters: (["from", "to"] as const).map((name) => ({
+        name,
+        in: "query",
+        required: true,
+        schema: schema(financeRevenueQuery.shape[name]),
+      })),
+      responses: {
+        "200": {
+          description: "Sandbox revenue CSV attachment",
+          content: { "text/csv": { schema: { type: "string" } } },
+        },
+        "400": { description: "Invalid UTC date range" },
+        "401": { description: "Session required" },
+        "403": { description: "Finance role and fresh MFA required" },
+      },
+    },
+  },
   "/admin/finance/orders": {
     get: {
       security: staffSecurity,
