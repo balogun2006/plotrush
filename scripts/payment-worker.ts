@@ -5,6 +5,7 @@ import {
   reconcilePayments,
   deliverReceipts,
 } from "../lib/domain/payment-operations";
+import { recoverRequestedRefunds } from "../lib/domain/refunds";
 const config = paystackConfig();
 if (!config) {
   console.log(
@@ -20,7 +21,8 @@ if (!config) {
   try {
     const provider = new PaystackClient(config),
       inbox = await processInbox(db, provider),
-      reconciliation = await reconcilePayments(db, provider);
+      reconciliation = await reconcilePayments(db, provider),
+      refundRecovery = await recoverRequestedRefunds(db, provider);
     let receipts: { claimed: number; sent: number } | { disabled: true } = {
       disabled: true,
     };
@@ -60,6 +62,7 @@ if (!config) {
         event: "payment_worker_completed",
         inbox,
         reconciliation,
+        refundRecovery,
         receipts,
       }),
     );
