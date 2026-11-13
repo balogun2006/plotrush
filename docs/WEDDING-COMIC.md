@@ -1,0 +1,15 @@
+# Wedding comic presentation
+
+The first illustrated experience is the solo version of The Missing Wedding Gift. The comic prologue introduces the disappearance and four fictional suspects. Existing saved investigations receive the presentation automatically. Case versions, clues and answers retain their existing content.
+
+The result card accepts only score and solved status. The player chooses a nickname locally. The exported 1200 by 630 PNG contains the nickname, score, a playful title, celebration artwork and the site's host. It contains no suspect selection, explanation, private notes or attempt URL. Native file sharing includes a shop link. Browsers without native image sharing download the PNG.
+
+The written brief and evidence remain the authoritative case facts. Comic captions and image descriptions are available to assistive technology. Interactive visual evidence and the group version are future work.
+
+## Artwork
+
+The built-in image generation tool produced `public/images/wedding-comic.png`. It is a two-column, three-row sheet with two opening scenes and four portraits. CSS displays the corresponding cells, and the result card uses the celebration scene. The generated source remains in the workspace's generated image directory.
+
+The generation prompt was:
+
+> Use case illustration-story. Create a polished Nigerian wedding mystery comic ART ATLAS, exactly 2 columns by 3 rows of equal square cells, a seamless contact sheet with absolutely no gutters or text. Thick expressive ink outlines, warm ivory, midnight purple, coral and lime accents, charming adult comedy, refined editorial comic style. Every cell fills its square. Top left cell: wide view of a lavish contemporary Nigerian wedding reception with stylish fictional Black Nigerian adult guests dancing, warm lights and flowers, a small silver gift box sitting innocently on a gift table, no criminal activity or suspicious singled-out character. Top right cell: the same reception gift table now with an empty spot, two shocked adult guests gesturing comically, no culprit shown. Middle left cell: friendly neutral bust portrait of Dami, fictional Black Nigerian male transport coordinator in purple formal agbada, neat short hair, no accessories suggesting guilt. Middle right: friendly neutral bust portrait of Tomi, fictional Black Nigerian woman wedding planner in coral formal outfit, elegant braids, holding a clipboard with no writing. Bottom left: friendly neutral bust portrait of Bisi, fictional Black Nigerian woman catering supervisor in lime-accented formal outfit, natural updo, holding a serving spoon. Bottom right: friendly neutral bust portrait of Kunle, fictional Black Nigerian male photographer in a light formal jacket, glasses and camera around his neck. All four suspects equally expressive and likeable, no visual accusation. Maintain a consistent character art style and cell alignment. No lettering, labels, balloons, watermarks or logos. Portrait backgrounds simple ivory with graphic purple shapes. This atlas will be cropped by CSS into six individual illustrations for an accessible game.

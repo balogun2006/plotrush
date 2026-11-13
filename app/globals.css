@@ -2815,3 +2815,37 @@ button:disabled {
 .daily-card .text-link {
   margin-top: 8px;
 }
+.wedding-comic {
+  margin: 24px 0 32px;
+  padding: 24px;
+  border: 2px solid #211a35;
+  border-radius: 22px;
+  background: #fffaf0;
+}
+.comic-intro h2 { margin: 12px 0; font-size: clamp(1.5rem, 3vw, 2rem); }
+.comic-intro p { color: #655d75; line-height: 1.6; }
+.comic-panels { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.comic-panels figure { margin: 0; border: 2px solid #211a35; border-radius: 14px; overflow: hidden; background: white; }
+.comic-art, .comic-portrait {
+  background-image: url('/images/wedding-comic.png');
+  background-size: 200% 300%;
+  background-repeat: no-repeat;
+}
+.comic-art { aspect-ratio: 1; }
+.comic-scene-one { background-position: 0% 0%; }
+.comic-scene-two { background-position: 100% 0%; }
+.comic-panels figcaption { padding: 16px; line-height: 1.5; }
+.comic-panels figcaption b, .comic-panels figcaption span { display: block; }
+.comic-panels figcaption span { margin-top: 8px; color: #655d75; }
+.comic-portrait { flex-shrink: 0; display: inline-block; width: 58px; height: 58px; border-radius: 50%; border: 2px solid #211a35; }
+.wedding-postcard { margin: 28px auto; padding: 24px; max-width: 800px; background: #fffaf0; border: 2px solid #211a35; border-radius: 20px; text-align: left; }
+.wedding-postcard h2 { font-size: 1.6rem; margin: 12px 0 20px; }
+.wedding-postcard label { display: block; margin-bottom: 8px; }
+.wedding-postcard input { width: 100%; padding: 12px; border: 1px solid #cbc3d7; border-radius: 10px; font: inherit; margin-bottom: 20px; }
+.wedding-postcard canvas { display: block; width: 100%; height: auto; border-radius: 12px; }
+.wedding-postcard p { line-height: 1.6; color: #655d75; }
+.wedding-postcard .result-actions { justify-content: flex-start; }
+@media (max-width: 600px) {
+  .comic-panels { grid-template-columns: 1fr; }
+  .wedding-comic, .wedding-postcard { padding: 16px; }
+}
