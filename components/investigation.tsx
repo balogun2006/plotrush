@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import { api, ApiError } from "./api";
 import type { Snapshot } from "@/lib/domain/game";
+import { WeddingComic, WeddingPortrait } from "./wedding-comic";
+import { WeddingResultCard } from "./wedding-result-card";
 export function Investigation({ id }: { id: string }) {
   const [a, setA] = useState<Snapshot | null>(null),
     [error, setError] = useState(""),
@@ -129,6 +131,9 @@ export function Investigation({ id }: { id: string }) {
           </strong>
           <span>60 points for the suspect · 40 for the reason</span>
         </div>
+        {a.caseId === "wedding-gift" && (
+          <WeddingResultCard score={a.result.score} solved={a.result.solved} />
+        )}
         <section className="reveal-card">
           <span className="eyebrow">THE FULL PICTURE</span>
           <h2>
@@ -214,6 +219,7 @@ export function Investigation({ id }: { id: string }) {
           <span className="status-dot" /> Round {a.round} of {a.totalRounds}
         </span>
       </div>
+      {a.caseId === "wedding-gift" && <WeddingComic />}
       <div className="game-layout">
         <aside className="case-brief">
           <div className="brief-top">
@@ -237,9 +243,13 @@ export function Investigation({ id }: { id: string }) {
             <span className="eyebrow">PERSONS OF INTEREST</span>
             {a.suspects.map((s, i) => (
               <div key={s.id}>
-                <span aria-hidden="true" className={"avatar avatar-" + i}>
-                  {s.name[0]}
-                </span>
+                {a.caseId === "wedding-gift" ? (
+                  <WeddingPortrait id={s.id} name={s.name} />
+                ) : (
+                  <span aria-hidden="true" className={"avatar avatar-" + i}>
+                    {s.name[0]}
+                  </span>
+                )}
                 <strong>{s.name}</strong>
                 <span>Suspect {String(i + 1).padStart(2, "0")}</span>
               </div>
@@ -426,6 +436,7 @@ export function Investigation({ id }: { id: string }) {
                       <input
                         type="radio"
                         name="suspect"
+                        aria-label={s.name}
                         value={s.id}
                         checked={suspect === s.id}
                         onChange={() => {
@@ -433,9 +444,16 @@ export function Investigation({ id }: { id: string }) {
                           setConfirm(false);
                         }}
                       />
-                      <span aria-hidden="true" className={"avatar avatar-" + i}>
-                        {s.name[0]}
-                      </span>
+                      {a.caseId === "wedding-gift" ? (
+                        <WeddingPortrait id={s.id} name={s.name} />
+                      ) : (
+                        <span
+                          aria-hidden="true"
+                          className={"avatar avatar-" + i}
+                        >
+                          {s.name[0]}
+                        </span>
+                      )}
                       {s.name}
                     </label>
                   ))}

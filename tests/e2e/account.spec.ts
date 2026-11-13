@@ -1,9 +1,10 @@
 import { test, expect } from "@playwright/test";
+import { readFile } from "node:fs/promises";
 test("guest verifies email, retains private notes, signs back in and unlocks premium solo and group purchases", async ({
   page,
   browser,
   baseURL,
-}) => {
+}, info) => {
   test.setTimeout(60000);
   const email = crypto.randomUUID() + "@example.test";
   await page.goto("/");
@@ -95,8 +96,56 @@ test("guest verifies email, retains private notes, signs back in and unlocks pre
     page.getByText("PREMIUM SOLO INVESTIGATION", { exact: true }),
   ).toBeVisible();
   await expect(page.getByText("Round 1 of 3", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "The wedding mystery in pictures" }),
+  ).toBeVisible();
+  await page.screenshot({
+    path: `test-results/wedding-comic-${info.project.name}.jpg`,
+    fullPage: true,
+  });
   await page.getByRole("button", { name: "Unlock next round" }).click();
   await expect(page.getByText("Round 2 of 3", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Unlock next round" }).click();
+  await expect(page.getByText("Round 3 of 3", { exact: true })).toBeVisible();
+  await page.getByRole("tab", { name: "Make a call", exact: true }).click();
+  await expect(
+    page
+      .locator(".suspect-choices")
+      .getByRole("img", { name: "Illustrated portrait of Dami", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("radio", { name: "Dami", exact: true }).check();
+  await page
+    .getByRole("radio", {
+      name: "Withheld it in the van to force payment of an invented handling fee.",
+      exact: true,
+    })
+    .check();
+  await page
+    .getByRole("button", { name: "Submit my verdict", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Confirm my verdict", exact: true })
+    .click();
+  await page.getByLabel("Nickname on your card").fill("Detective H");
+  const card = page.getByRole("img", {
+    name: /Spoiler-free result card for Detective H, 100 out of 100/,
+  });
+  await expect(card).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Download result card", exact: true }),
+  ).toBeEnabled();
+  const downloadPromise = page.waitForEvent("download");
+  await page
+    .getByRole("button", { name: "Download result card", exact: true })
+    .click();
+  const downloaded = await downloadPromise;
+  expect(downloaded.suggestedFilename()).toBe("plotrush-wedding-result.png");
+  const png = await readFile((await downloaded.path())!);
+  expect(png.subarray(1, 4).toString()).toBe("PNG");
+  expect([png.readUInt32BE(16), png.readUInt32BE(20)]).toEqual([1200, 630]);
+  await card.screenshot({
+    path: `test-results/wedding-result-${info.project.name}.png`,
+  });
   await page.goto("/library");
   await expect(
     page.getByRole("heading", { name: "Purchased cases" }),

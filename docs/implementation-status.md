@@ -225,3 +225,10 @@ Continue with complete MN-003 account/role foundations and MN-007–010 durable 
 
 - Finance and admin staff with fresh MFA can download up to 31 inclusive UTC days from the finance desk. The CSV groups verified Paystack test activity by currency and solo or group mode. It uses the order payment date for sales and the PlotRush reconciliation date for confirmed refunds, so a refund for an earlier sale appears in the current reporting period.
 - The file contains gross sales, confirmed refunds and net before fees in integer minor units. It contains no buyer details or order references. Exports are audited and served as private, uncached attachments. The report does not include fees, settlements, chargebacks or advertising revenue.
+
+## Wedding comic solo pilot
+
+- The Missing Wedding Gift solo investigation now has a two-panel illustrated opening and four suspect portraits. Existing saved investigations receive the presentation without migrations or changes to clues, scoring or answers.
+- Completed solo attempts offer a locally generated 1200 × 630 PNG with an editable nickname, score and playful verdict. Native image sharing falls back to a download. Cards contain no solution, selected suspect, private notes or attempt URL.
+- The written evidence remains authoritative. Group illustrations and interactive visual clues remain future work. Artwork provenance and exact generation prompt are documented in `docs/WEDDING-COMIC.md`.
+- Verification: production build, TypeScript, lint, OpenAPI and content validation passed, along with 83 unit/database tests and all 16 desktop/mobile browser scenarios. Browser coverage exercises purchase, all three solo rounds, portrait selection and a downloaded 1200 × 630 PNG on desktop and mobile.
