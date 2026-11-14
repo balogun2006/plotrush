@@ -1,4 +1,47 @@
 import { test, expect } from "@playwright/test";
+test("recommendations separate started cases from fresh mysteries", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(
+    page.getByRole("heading", { name: "Featured mysteries", exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Play a free mystery", exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/play\//);
+  await page.goto("/");
+  const result = await page.evaluate(async () => {
+    const response = await fetch(
+      "/api/v1/recommendations?includeCompleted=true",
+    );
+    return {
+      status: response.status,
+      cache: response.headers.get("cache-control"),
+      body: await response.json(),
+    };
+  });
+  expect(result.status).toBe(200);
+  expect(result.cache).toContain("no-store");
+  expect(
+    result.body.data.cases.some((c: { id: string }) => c.id === "last-slice"),
+  ).toBe(false);
+  expect(
+    result.body.data.replays.some((c: { id: string }) => c.id === "last-slice"),
+  ).toBe(true);
+  await page
+    .getByRole("checkbox", { name: "Include completed and started cases" })
+    .check();
+  await expect(
+    page.getByRole("heading", { name: "Previously played mysteries" }),
+  ).toBeVisible();
+  await page
+    .getByRole("checkbox", { name: "Include completed and started cases" })
+    .uncheck();
+  await expect(
+    page.getByRole("heading", { name: "Previously played mysteries" }),
+  ).toHaveCount(0);
+});
 test("guest completes, resumes and shares a spoiler-free solo mystery", async ({
   page,
   context,

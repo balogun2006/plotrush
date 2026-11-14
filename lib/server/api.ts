@@ -15,6 +15,7 @@ import {
 import { catalogue, start, read, mutate, library } from "../domain/game";
 import { requestRefund } from "../domain/refunds";
 import { refundRequestInput } from "../contracts/refunds";
+import { recommendations } from "../domain/recommendations";
 import { dailyOverview } from "../domain/daily";
 import { dailyStartInput } from "../contracts/daily";
 import { filterCases, parseFilters, facets } from "../domain/catalogue";
@@ -232,38 +233,8 @@ export async function handle(req: NextRequest, path: string[]) {
         actor ? await interests(db, actor) : { themes: [], version: 0 },
       );
     if (req.method === "GET" && route === "recommendations") {
-      const all = (await catalogue(db)).filter(
-        (c) => c.access === "free" && c.modes.includes("solo"),
-      );
-      const saved = actor ? (await interests(db, actor)).themes : [];
-      const completed = actor
-        ? (await library(db, actor)).filter((a) => a.state === "revealed")
-        : [];
-      const completedIds = actor
-        ? (
-            await db.query<{ case_key: string }>(
-              "SELECT DISTINCT v.case_key FROM app_private.attempts a JOIN app_private.case_versions v ON v.id=a.case_version_id WHERE a.principal_id=$1 AND a.state='revealed'",
-              [actor],
-            )
-          ).rows.map((x) => x.case_key)
-        : [];
-      const ranked = all
-        .filter((c) => !completedIds.includes(c.id))
-        .map((c) => ({
-          ...c,
-          recommendationReason: saved.some((t) =>
-            c.discovery.themes.includes(t as (typeof themes)[number]),
-          )
-            ? "Matches your chosen themes"
-            : "A quick mystery to try",
-          rank: c.discovery.themes.filter((t) => saved.includes(t)).length,
-        }))
-        .sort((a, b) => b.rank - a.rank || a.id.localeCompare(b.id));
-      return json({
-        label: saved.length ? "For you" : "Featured",
-        cases: ranked,
-        completedCount: completed.length,
-      });
+      if (actor) await limit(db, "recommendations:" + actor, 120, 60);
+      return json(await recommendations(db, actor, req.nextUrl.searchParams));
     }
     if (req.method === "POST" && route === "auth/request-code")
       assert(
