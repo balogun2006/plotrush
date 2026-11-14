@@ -101,7 +101,12 @@ async function audit(
     [randomUUID(), actor, action, entity, JSON.stringify(details)],
   );
 }
-async function merge(tx: Sql, source: string, target: string) {
+async function merge(
+  tx: Sql,
+  source: string,
+  target: string,
+  replaceInterests: boolean,
+) {
   // Lock rooms whose guest memberships will move. A room belonging only to the
   // destination account needs no changes and can stay active during sign-in.
   const rooms = (
@@ -160,11 +165,18 @@ async function merge(tx: Sql, source: string, target: string) {
   );
   const s = await interests(tx, source),
     t = await interests(tx, target);
-  const selected = [...new Set([...t.themes, ...s.themes])].slice(0, 6);
-  if (s.version || t.version)
+  // A saved empty/disabled account preference is a choice too. Never union it
+  // with guest data or turn personalisation back on without explicit consent.
+  if (replaceInterests || (s.version && !t.version))
     await tx.query(
-      "INSERT INTO app_private.interests(principal_id,themes) VALUES($1,$2) ON CONFLICT(principal_id) DO UPDATE SET themes=$2,version=app_private.interests.version+1,updated_at=now()",
-      [target, JSON.stringify(selected)],
+      "INSERT INTO app_private.interests(principal_id,themes,moods,preferred_difficulty,personalisation_enabled) VALUES($1,$2,$3,$4,$5) ON CONFLICT(principal_id) DO UPDATE SET themes=excluded.themes,moods=excluded.moods,preferred_difficulty=excluded.preferred_difficulty,personalisation_enabled=excluded.personalisation_enabled,version=app_private.interests.version+1,updated_at=now()",
+      [
+        target,
+        JSON.stringify(s.themes),
+        JSON.stringify(s.moods),
+        s.preferredDifficulty,
+        s.personalisationEnabled,
+      ],
     );
   await tx.query("DELETE FROM app_private.interests WHERE principal_id=$1", [
     source,
@@ -231,6 +243,7 @@ export async function verifyCode(
   code: string,
   secret: string,
   confirmMerge = false,
+  replaceInterests = false,
 ) {
   const result = await db.transaction(async (tx) => {
     // Global auth lock prevents new-address races across principals. Gameplay
@@ -303,7 +316,7 @@ export async function verifyCode(
           "MERGE_CONFIRMATION_REQUIRED",
           "Confirm combining this browser's progress with your existing account.",
         );
-      await merge(tx, actor, target);
+      await merge(tx, actor, target, replaceInterests);
     } else {
       await tx.query(
         "INSERT INTO app_private.accounts(principal_id,email) VALUES($1,$2) ON CONFLICT(principal_id) DO NOTHING",

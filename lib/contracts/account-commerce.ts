@@ -12,6 +12,7 @@ export const verifyCodeInput = z
     challengeId: z.uuid(),
     code: z.string().regex(/^\d{8}$/),
     confirmMerge: z.boolean().default(false),
+    replaceInterests: z.boolean().default(false),
   })
   .strict();
 export const orderInput = z

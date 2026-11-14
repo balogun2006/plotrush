@@ -16,6 +16,11 @@ import { catalogue, start, read, mutate, library } from "../domain/game";
 import { requestRefund } from "../domain/refunds";
 import { refundRequestInput } from "../contracts/refunds";
 import { recommendations } from "../domain/recommendations";
+import {
+  emptyInterests,
+  interestInput,
+  interestDeleteInput,
+} from "../contracts/interests";
 import { dailyOverview } from "../domain/daily";
 import { dailyStartInput } from "../contracts/daily";
 import { filterCases, parseFilters, facets } from "../domain/catalogue";
@@ -229,9 +234,7 @@ export async function handle(req: NextRequest, path: string[]) {
       });
     }
     if (req.method === "GET" && route === "interests")
-      return json(
-        actor ? await interests(db, actor) : { themes: [], version: 0 },
-      );
+      return json(actor ? await interests(db, actor) : emptyInterests());
     if (req.method === "GET" && route === "recommendations") {
       if (actor) await limit(db, "recommendations:" + actor, 120, 60);
       return json(await recommendations(db, actor, req.nextUrl.searchParams));
@@ -316,6 +319,7 @@ export async function handle(req: NextRequest, path: string[]) {
         b.code,
         authSecret(),
         b.confirmMerge,
+        b.replaceInterests,
       );
       token = result.token;
       return json(result.account);
@@ -537,17 +541,22 @@ export async function handle(req: NextRequest, path: string[]) {
       return json(await start(db, actor, b.caseId, premium), 201);
     }
     if (req.method === "PUT" && route === "interests") {
-      const b = z
-        .object({
-          themes: z
-            .array(z.enum(themes))
-            .max(6)
-            .refine((xs) => new Set(xs).size === xs.length),
-          expectedVersion: z.number().int().nonnegative(),
-        })
-        .strict()
-        .parse(await body(req));
-      return json(await saveInterests(db, actor, b.themes, b.expectedVersion));
+      const { themes, expectedVersion, ...options } = interestInput.parse(
+        await body(req),
+      );
+      return json(
+        await saveInterests(db, actor, themes, expectedVersion, options),
+      );
+    }
+    if (req.method === "DELETE" && route === "interests") {
+      const b = interestDeleteInput.parse(await body(req));
+      return json(
+        await saveInterests(db, actor, [], b.expectedVersion, {
+          moods: [],
+          preferredDifficulty: null,
+          personalisationEnabled: false,
+        }),
+      );
     }
     if (req.method === "GET" && route === "me/library")
       return json(await library(db, actor));

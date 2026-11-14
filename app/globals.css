@@ -1474,6 +1474,11 @@ footer > a:last-child {
 .interests-wrap > .save-note {
   font-size: 11px;
 }
+.interests-wrap > select {
+  display: block;
+  width: 100%;
+  margin: 10px 0 24px;
+}
 .interest-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -2455,7 +2460,7 @@ footer > a:last-child {
   display: block;
   margin: 18px 0 8px;
 }
-.room-panel input:not([type="radio"]) {
+.room-panel input:not([type="radio"]):not([type="checkbox"]) {
   width: 100%;
   padding: 14px;
   border: 1px solid #cbc3d7;

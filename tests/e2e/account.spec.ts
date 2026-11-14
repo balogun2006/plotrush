@@ -36,6 +36,19 @@ test("guest verifies email, retains private notes, signs back in and unlocks pre
   ).toBeVisible();
   await page.reload();
   await expect(page.getByText(email, { exact: true })).toBeVisible();
+  await page.evaluate(async () => {
+    const response = await fetch("/api/v1/interests", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        themes: ["heist"],
+        moods: ["dark"],
+        expectedVersion: 0,
+      }),
+    });
+    if (!response.ok)
+      throw new Error("Could not save verified test preferences");
+  });
   await page.goto(attemptUrl);
   await page.getByRole("tab", { name: "My notes" }).click();
   await expect(page.getByLabel("Private investigation notes")).toHaveValue(
@@ -52,6 +65,18 @@ test("guest verifies email, retains private notes, signs back in and unlocks pre
     .click();
   await expect(testCode).toBeVisible();
   const again = (await testCode.innerText()).match(/\d{8}/)![0];
+  await page.evaluate(async () => {
+    const response = await fetch("/api/v1/interests", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        themes: ["everyday-mystery"],
+        moods: ["lighthearted"],
+        expectedVersion: 0,
+      }),
+    });
+    if (!response.ok) throw new Error("Could not save guest test preferences");
+  });
   await page.getByLabel("Verification code").fill(again);
   await page
     .getByRole("button", { name: "Verify and continue", exact: true })
@@ -59,12 +84,24 @@ test("guest verifies email, retains private notes, signs back in and unlocks pre
   await expect(
     page.getByRole("heading", { name: "Combine your progress?", exact: true }),
   ).toBeVisible();
+  const replace = page.getByRole("checkbox", {
+    name: "Replace saved account interests with this browser’s choices",
+  });
+  await expect(replace).not.toBeChecked();
+  await replace.check();
   await page
     .getByRole("button", { name: "Confirm and combine progress", exact: true })
     .click();
   await expect(
     page.getByRole("heading", { name: "Email verified", exact: true }),
   ).toBeVisible();
+  const mergedInterests = await page.evaluate(
+    async () => (await (await fetch("/api/v1/interests")).json()).data,
+  );
+  expect(mergedInterests).toMatchObject({
+    themes: ["everyday-mystery"],
+    moods: ["lighthearted"],
+  });
   await page.goto("/shop?success=true");
   await page
     .getByRole("button", { name: "Create demo solo order", exact: true })

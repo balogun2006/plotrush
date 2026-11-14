@@ -13,6 +13,7 @@ export default function AccountPage() {
     [challenge, setChallenge] = useState(""),
     [devCode, setDevCode] = useState(""),
     [merge, setMerge] = useState(false),
+    [replaceInterests, setReplaceInterests] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   useEffect(() => {
@@ -42,6 +43,7 @@ export default function AccountPage() {
       setDevCode(r.developmentCode ?? "");
       setCode("");
       setMerge(false);
+      setReplaceInterests(false);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -56,6 +58,7 @@ export default function AccountPage() {
         challengeId: challenge,
         code,
         confirmMerge,
+        replaceInterests: confirmMerge && replaceInterests,
       });
       setMe(a);
       setChallenge("");
@@ -195,10 +198,27 @@ export default function AccountPage() {
                     <h3>Combine your progress?</h3>
                     <p>
                       This email already has a PlotRush account. Continue to
-                      move this browser’s cases and interests into it. Both
-                      histories are kept; duplicate active cases are saved
-                      separately. Finish or leave active group rooms first.
+                      move this browser’s cases into it. Both histories are
+                      kept; duplicate active cases are saved separately. Finish
+                      or leave active group rooms first.
                     </p>
+                    <p>
+                      Your saved account interests are kept by default. If the
+                      account has no saved interests, this browser’s choices are
+                      carried over.
+                    </p>
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={replaceInterests}
+                        disabled={busy}
+                        onChange={(event) =>
+                          setReplaceInterests(event.target.checked)
+                        }
+                      />{" "}
+                      Replace saved account interests with this browser’s
+                      choices
+                    </label>
                   </div>
                 )}
                 <div className="room-actions">
