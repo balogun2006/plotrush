@@ -11,6 +11,8 @@ import {
   hash,
   interests,
   saveInterests,
+  uuidInterests,
+  saveUuidInterests,
 } from "../domain/identity";
 import { catalogue, start, read, mutate, library } from "../domain/game";
 import { requestRefund } from "../domain/refunds";
@@ -20,10 +22,12 @@ import {
   emptyInterests,
   interestInput,
   interestDeleteInput,
+  uuidInterestInput,
 } from "../contracts/interests";
 import { dailyOverview } from "../domain/daily";
 import { dailyStartInput } from "../contracts/daily";
 import { parseFilters } from "../domain/catalogue";
+import { resolveTheme } from "../domain/themes";
 import { discoverySnapshot, themePage } from "../domain/discovery";
 import {
   createRoom,
@@ -193,7 +197,7 @@ export async function handle(req: NextRequest, path: string[]) {
       });
     if (req.method === "GET" && route === "daily")
       return json(await dailyOverview(db, actor));
-    if (req.method === "GET" && route === "cases") {
+    if (req.method === "GET" && ["cases", "discovery/facets"].includes(route)) {
       return json(await discoverySnapshot(db, req.nextUrl.searchParams));
     }
     if (req.method === "GET" && route === "taxonomy") {
@@ -210,6 +214,15 @@ export async function handle(req: NextRequest, path: string[]) {
     if (req.method === "GET" && route === "themes")
       return json(await discoverySnapshot(db, req.nextUrl.searchParams));
     if (req.method === "GET" && path[0] === "themes" && path.length === 2) {
+      const canonical = await resolveTheme(db, path[1]);
+      if (canonical && canonical !== path[1]) {
+        const target = req.nextUrl.clone();
+        target.pathname = "/api/v1/themes/" + canonical;
+        if (target.searchParams.get("themes") === path[1])
+          target.searchParams.set("themes", canonical);
+        return NextResponse.redirect(target, 308);
+      }
+
       const f = parseFilters(req.nextUrl.searchParams);
       assert(
         !f.themes.length || (f.themes.length === 1 && f.themes[0] === path[1]),
@@ -239,6 +252,8 @@ export async function handle(req: NextRequest, path: string[]) {
         preview: true,
       });
     }
+    if (req.method === "GET" && route === "me/interests")
+      return json(await uuidInterests(db, actor));
     if (req.method === "GET" && route === "interests")
       return json(actor ? await interests(db, actor) : emptyInterests());
     if (req.method === "GET" && route === "recommendations") {
@@ -255,7 +270,7 @@ export async function handle(req: NextRequest, path: string[]) {
     if (
       (req.method === "POST" &&
         ["solo/attempts", "daily/start"].includes(route)) ||
-      (req.method === "PUT" && route === "interests") ||
+      (req.method === "PUT" && ["interests", "me/interests"].includes(route)) ||
       (req.method === "POST" &&
         ["rooms", "rooms/join", "auth/request-code"].includes(route))
     ) {
@@ -546,6 +561,14 @@ export async function handle(req: NextRequest, path: string[]) {
         .parse(await body(req));
       return json(await start(db, actor, b.caseId, premium), 201);
     }
+    if (req.method === "PUT" && route === "me/interests")
+      return json(
+        await saveUuidInterests(
+          db,
+          actor,
+          uuidInterestInput.parse(await body(req)),
+        ),
+      );
     if (req.method === "PUT" && route === "interests") {
       const { themes, expectedVersion, ...options } = interestInput.parse(
         await body(req),
@@ -554,14 +577,18 @@ export async function handle(req: NextRequest, path: string[]) {
         await saveInterests(db, actor, themes, expectedVersion, options),
       );
     }
-    if (req.method === "DELETE" && route === "interests") {
+    if (
+      req.method === "DELETE" &&
+      ["interests", "me/interests"].includes(route)
+    ) {
       const b = interestDeleteInput.parse(await body(req));
+      const cleared = await saveInterests(db, actor, [], b.expectedVersion, {
+        moods: [],
+        preferredDifficulty: null,
+        personalisationEnabled: false,
+      });
       return json(
-        await saveInterests(db, actor, [], b.expectedVersion, {
-          moods: [],
-          preferredDifficulty: null,
-          personalisationEnabled: false,
-        }),
+        route === "me/interests" ? await uuidInterests(db, actor) : cleared,
       );
     }
     if (req.method === "GET" && route === "me/library")

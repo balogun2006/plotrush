@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { TaxonomyTools } from "./taxonomy-tools";
 import { api } from "./api";
 import type { Theme } from "@/lib/contracts/themes";
 type Row = Theme & { reviewedCount: number; ready: boolean };
@@ -15,6 +16,7 @@ function ThemeEditor({
   saving: () => void;
 }) {
   const [value, setValue] = useState(theme),
+    [newSlug, setNewSlug] = useState(""),
     [reason, setReason] = useState(""),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
@@ -126,6 +128,47 @@ function ThemeEditor({
             onChange={(event) => setReason(event.target.value)}
           />
         </label>
+        <label>
+          New URL slug for {theme.slug}
+          <input
+            aria-label={`New URL slug for ${theme.slug}`}
+            value={newSlug}
+            maxLength={80}
+            pattern="[a-z0-9]+(-[a-z0-9]+)*"
+            onChange={(e) => setNewSlug(e.target.value)}
+          />
+        </label>
+        <p>
+          Rename only when necessary. The old URL permanently redirects, and the
+          same theme identity and saved games are retained.
+        </p>
+        <button
+          type="button"
+          className="text-button"
+          disabled={
+            !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(newSlug) ||
+            reason.trim().length < 10
+          }
+          onClick={async () => {
+            saving();
+            setBusy(true);
+            setError("");
+            try {
+              await api(`admin/themes/${theme.slug}/rename`, "POST", {
+                slug: newSlug,
+                expectedRevision: theme.revision,
+                reason,
+              });
+              await saved();
+            } catch (e) {
+              setError((e as Error).message);
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          Rename theme {theme.slug}
+        </button>
         <button className="button lime" disabled={reason.trim().length < 10}>
           Save theme {theme.slug}
         </button>
@@ -175,6 +218,10 @@ export function ThemeDesk({
       )}
       {error && <p role="alert">{error}</p>}
       <p role="status">{notice}</p>
+      <TaxonomyTools
+        canEdit={publisher && publishEnabled}
+        changed={async () => setRows(await api<Row[]>("admin/themes"))}
+      />
       {rows?.map((theme) => (
         <ThemeEditor
           key={`${theme.id}:${theme.revision}`}

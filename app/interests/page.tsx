@@ -3,15 +3,16 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Check, ArrowRight } from "lucide-react";
 import { api } from "@/components/api";
-import { themes, moods, difficulties } from "@/lib/domain/content";
-import type { Interests } from "@/lib/contracts/interests";
-import type { Theme } from "@/lib/contracts/themes";
+import { difficulties } from "@/lib/domain/content";
+import type { UuidInterests } from "@/lib/contracts/interests";
+import type { Theme, Mood } from "@/lib/contracts/themes";
 import { labels } from "@/lib/domain/catalogue";
 export default function Interests() {
   const [selected, setSelected] = useState<string[]>([]),
     [selectedMoods, setSelectedMoods] = useState<string[]>([]),
     [difficulty, setDifficulty] = useState<string>(""),
     [enabled, setEnabled] = useState(true),
+    [moodRows, setMoodRows] = useState<Mood[]>([]),
     [themeLabels, setThemeLabels] = useState<Record<string, Theme>>({}),
     [version, setVersion] = useState(0),
     [ready, setReady] = useState(false),
@@ -20,18 +21,27 @@ export default function Interests() {
     [error, setError] = useState("");
   useEffect(() => {
     Promise.all([
-      api<Interests>("interests"),
-      api<{ themes: Theme[] }>("themes"),
+      api<UuidInterests>("me/interests"),
+      api<{ themes: Theme[]; moods: Mood[] }>("themes"),
     ])
       .then(([r, taxonomy]) => {
         setThemeLabels(
           Object.fromEntries(taxonomy.themes.map((t) => [t.slug, t])),
         );
-        setSelected(r.themes);
-        setSelectedMoods(r.moods);
+        setMoodRows(taxonomy.moods);
+        setSelected(
+          taxonomy.themes
+            .filter((t) => r.themeIds.includes(t.id))
+            .map((t) => t.slug),
+        );
+        setSelectedMoods(
+          taxonomy.moods
+            .filter((m) => r.moodIds.includes(m.id))
+            .map((m) => m.slug),
+        );
         setDifficulty(r.preferredDifficulty ?? "");
         setEnabled(r.personalisationEnabled);
-        setVersion(r.version);
+        setVersion(r.preferenceVersion);
         setReady(true);
       })
       .catch((e) => setError(e.message));
@@ -40,22 +50,30 @@ export default function Interests() {
     setBusy(true);
     setError("");
     try {
-      const next = await api<Interests>(
-        "interests",
+      const next = await api<UuidInterests>(
+        "me/interests",
         clear ? "DELETE" : "PUT",
         clear
           ? { expectedVersion: version }
           : {
-              themes: selected,
-              moods: selectedMoods,
+              themeIds: selected.map((s) => themeLabels[s].id),
+              moodIds: selectedMoods.map(
+                (s) => moodRows.find((m) => m.slug === s)!.id,
+              ),
               preferredDifficulty: difficulty || null,
               personalisationEnabled: enabled,
               expectedVersion: version,
             },
       );
-      setVersion(next.version);
-      setSelected(next.themes);
-      setSelectedMoods(next.moods);
+      setVersion(next.preferenceVersion);
+      setSelected(
+        Object.values(themeLabels)
+          .filter((t) => next.themeIds.includes(t.id))
+          .map((t) => t.slug),
+      );
+      setSelectedMoods(
+        moodRows.filter((m) => next.moodIds.includes(m.id)).map((m) => m.slug),
+      );
       setDifficulty(next.preferredDifficulty ?? "");
       setEnabled(next.personalisationEnabled);
       // Notify another open homepage without storing the private choices locally.
@@ -92,7 +110,7 @@ export default function Interests() {
       </p>
       <h2>Themes</h2>
       <div className="interest-grid" role="group" aria-label="Preferred themes">
-        {themes.map((t) => (
+        {Object.keys(themeLabels).map((t) => (
           <button
             className={"interest " + (selected.includes(t) ? "selected" : "")}
             key={t}
@@ -118,26 +136,34 @@ export default function Interests() {
       </div>
       <h2>Moods</h2>
       <div className="interest-grid" role="group" aria-label="Preferred moods">
-        {moods.map((m) => (
-          <button
-            key={m}
-            aria-label={labels[m]}
-            className={
-              "interest " + (selectedMoods.includes(m) ? "selected" : "")
-            }
-            aria-pressed={selectedMoods.includes(m)}
-            disabled={!ready || busy}
-            onClick={() => {
-              setNotice("");
-              setSelectedMoods((xs) =>
-                xs.includes(m) ? xs.filter((x) => x !== m) : [...xs, m],
-              );
-            }}
-          >
-            {labels[m]}
-            {selectedMoods.includes(m) ? <Check size={18} /> : <span>+</span>}
-          </button>
-        ))}
+        {moodRows.map((row) => {
+          const m = row.slug;
+          return (
+            <button
+              key={m}
+              aria-label={row.label}
+              className={
+                "interest " + (selectedMoods.includes(m) ? "selected" : "")
+              }
+              aria-pressed={selectedMoods.includes(m)}
+              disabled={
+                !ready ||
+                busy ||
+                (row.status === "retired" && !selectedMoods.includes(m))
+              }
+              onClick={() => {
+                setNotice("");
+                setSelectedMoods((xs) =>
+                  xs.includes(m) ? xs.filter((x) => x !== m) : [...xs, m],
+                );
+              }}
+            >
+              {row.label}
+              {row.status === "retired" && " (Unavailable)"}
+              {selectedMoods.includes(m) ? <Check size={18} /> : <span>+</span>}
+            </button>
+          );
+        })}
       </div>
       <label htmlFor="preferred-difficulty">Preferred difficulty</label>
       <select

@@ -112,6 +112,8 @@ export function ThemeDirectory({ slug }: { slug?: string }) {
   useEffect(() => {
     let live = true;
     const p = new URLSearchParams(query);
+    p.delete("cursor");
+    p.delete("limit");
     if (slug) p.delete("themes");
     api<Snapshot>("themes?" + p)
       .then((data) => {

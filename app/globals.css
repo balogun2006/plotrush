@@ -2854,3 +2854,12 @@ button:disabled {
   .comic-panels { grid-template-columns: 1fr; }
   .wedding-comic, .wedding-postcard { padding: 16px; }
 }
+
+.facet-options {border:0;padding:0;margin:20px 0;min-width:0}
+.facet-options legend {font-weight:700;font-size:12px}
+.facet-options label {display:flex;gap:8px;align-items:center;margin:12px 0}
+.facet-options input {width:18px;height:18px;flex-shrink:0}
+.filter-dialog {border:0;border-radius:18px;padding:24px;max-width:calc(100vw - 32px);width:420px;max-height:85dvh;overflow:auto;background:var(--white);color:var(--ink)}
+.filter-dialog::backdrop {background:#130e23bb}
+.filter-dialog .filter-fields {display:block;padding:0}
+.filter-dialog button {margin:8px 8px 0 0}

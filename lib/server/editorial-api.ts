@@ -18,7 +18,14 @@ import {
 import { paystackConfig, PaystackClient } from "../providers/paystack";
 import { exportFinanceRevenue } from "../domain/finance-revenue";
 import * as editorial from "../domain/editorial";
-import { listThemeEditorial, editTheme } from "../domain/theme-editorial";
+import {
+  listThemeEditorial,
+  editTheme,
+  createTheme,
+  renameTheme,
+  listMoodEditorial,
+  writeMood,
+} from "../domain/theme-editorial";
 import { themeEditInput } from "../contracts/themes";
 import {
   draftInput,
@@ -222,6 +229,52 @@ export async function handleEditorial(req: NextRequest, path: string[]) {
         );
       }
     }
+    if (route === "themes" && req.method === "POST")
+      return reply(
+        await createTheme(
+          db,
+          ctx,
+          await jsonBody(req),
+          process.env.FEATURE_EDITORIAL_PUBLISH === "true",
+        ),
+      );
+    if (
+      path[0] === "themes" &&
+      path.length === 3 &&
+      path[2] === "rename" &&
+      req.method === "POST"
+    )
+      return reply(
+        await renameTheme(
+          db,
+          ctx,
+          path[1],
+          await jsonBody(req),
+          process.env.FEATURE_EDITORIAL_PUBLISH === "true",
+        ),
+      );
+    if (route === "moods" && req.method === "GET")
+      return reply(await listMoodEditorial(db, ctx));
+    if (route === "moods" && req.method === "POST")
+      return reply(
+        await writeMood(
+          db,
+          ctx,
+          null,
+          await jsonBody(req),
+          process.env.FEATURE_EDITORIAL_PUBLISH === "true",
+        ),
+      );
+    if (path[0] === "moods" && path.length === 2 && req.method === "PUT")
+      return reply(
+        await writeMood(
+          db,
+          ctx,
+          path[1],
+          await jsonBody(req),
+          process.env.FEATURE_EDITORIAL_PUBLISH === "true",
+        ),
+      );
     if (route === "themes" && req.method === "GET")
       return reply(await listThemeEditorial(db, ctx));
     if (path[0] === "themes" && path.length === 2 && req.method === "PUT") {

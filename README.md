@@ -109,3 +109,6 @@ Publishers can assign organic featured positions to reviewed releases. Recommend
 
 
 Browse `/themes` for filter-aware draft inventory and category pages. The protected studio includes revisioned theme labels, retirement and supply-gated promotion. [ADR008](docs/ADR-008-THEME-BROWSING.md) explains the six-theme registry and remaining taxonomy scope. Empty themes do not advertise playable content; the supplied drafts are not approved launch shelves.
+
+
+Discovery now supports multiple theme/mood/difficulty filters, a mobile Apply/Cancel dialog, removable chips and stable page URLs. Publishers can create themes/moods and rename theme URLs with permanent redirects; retired pages return410. Private interests use persisted UUID references with legacy compatibility. [ADR009](docs/ADR-009-DISCOVERY-COMPLETION.md) documents the completed discovery tools, migration and preview boundaries.

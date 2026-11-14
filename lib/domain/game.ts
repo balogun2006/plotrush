@@ -5,7 +5,7 @@ import { assert } from "./errors";
 import { playableVersion, requirePremium, type PremiumPolicy } from "./premium";
 import { lockPrincipal } from "./identity";
 import { dailyClock, scheduledCase } from "./daily";
-import { themeRegistry } from "./themes";
+import { themeRegistry, moodRegistry } from "./themes";
 type Attempt = {
   id: string;
   principal_id: string;
@@ -32,21 +32,33 @@ export async function catalogue(db: Sql) {
   const themeLabels = Object.fromEntries(
     (await themeRegistry(db)).map((t) => [t.slug, t.label]),
   );
+  const moodLabels = Object.fromEntries(
+    (await moodRegistry(db)).map((m) => [m.slug, m.label]),
+  );
   const r = await db.query<{
     content: Case;
+    discovery: Case["discovery"];
     case_uuid: string;
     first_published_at: string | null;
     featured_rank: number | null;
   }>(
-    `SELECT DISTINCT ON(v.case_key) v.content,d.case_uuid,to_char(d.first_published_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS first_published_at,d.featured_rank FROM app_private.playable_versions v JOIN app_private.case_discovery_order d ON d.case_key=v.case_key ORDER BY v.case_key,v.created_at DESC,v.id`,
+    `SELECT DISTINCT ON(v.case_key) v.content,jsonb_build_object(
+ 'primaryTheme',(SELECT t.slug FROM app_private.case_version_themes vt JOIN app_private.themes t ON t.id=vt.theme_id WHERE vt.case_version_id=v.id AND vt.is_primary),
+ 'themes',(SELECT jsonb_agg(t.slug ORDER BY t.slug) FROM app_private.case_version_themes vt JOIN app_private.themes t ON t.id=vt.theme_id WHERE vt.case_version_id=v.id),
+ 'moods',(SELECT jsonb_agg(m.slug ORDER BY m.slug) FROM app_private.case_version_moods vm JOIN app_private.moods m ON m.id=vm.mood_id WHERE vm.case_version_id=v.id),
+ 'difficulty',md.difficulty,'contentWarnings',md.warnings_json,
+ 'estimatedDurationMinutes',jsonb_strip_nulls(jsonb_build_object('solo',md.duration_solo,'group',md.duration_group))) AS discovery,d.case_uuid,to_char(d.first_published_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS first_published_at,d.featured_rank FROM app_private.playable_versions v JOIN app_private.case_discovery_order d ON d.case_key=v.case_key JOIN app_private.case_discovery_metadata md ON md.case_version_id=v.id ORDER BY v.case_key,v.created_at DESC,v.id`,
   );
   return r.rows.map((x) => ({
-    ...card(caseSchema.parse(x.content)),
+    ...card(caseSchema.parse({ ...x.content, discovery: x.discovery })),
     caseUuid: x.case_uuid,
     firstPublishedAt: x.first_published_at,
     featuredRank: x.featured_rank,
+    moodLabels: Object.fromEntries(
+      x.discovery.moods.map((m) => [m, moodLabels[m] ?? m]),
+    ),
     themeLabels: Object.fromEntries(
-      x.content.discovery.themes.map((t) => [t, themeLabels[t] ?? t]),
+      x.discovery.themes.map((t) => [t, themeLabels[t] ?? t]),
     ),
   }));
 }

@@ -202,7 +202,7 @@ describe("discovery contracts", () => {
   });
   it("rejects unknown, repeated, and overlong filters", () => {
     for (const q of [
-      "themes=made-up",
+      "themes=not valid!",
       "mode=solo&mode=group",
       "sort=sql",
       "themes=" + "x".repeat(2100),

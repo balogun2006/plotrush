@@ -24,11 +24,18 @@ import {
   interestInput,
   interestDeleteInput,
   interestsSchema,
+  uuidInterestInput,
+  uuidInterestsSchema,
 } from "../lib/contracts/interests";
 import { readFile, writeFile } from "node:fs/promises";
 import { z } from "zod";
 import {
   themeEditInput,
+  themeCreateInput,
+  themeRenameInput,
+  moodCreateInput,
+  moodEditInput,
+  moodSchema,
   themeSchema,
   themeAvailability,
 } from "../lib/contracts/themes";
@@ -98,6 +105,7 @@ const draftId = [
 ];
 const staffPaths = {
   "/admin/themes": {
+    post: staffPost(themeCreateInput, "content_publisher"),
     get: {
       security: staffSecurity,
       "x-staff-role": "editorial",
@@ -121,8 +129,31 @@ const staffPaths = {
     put: {
       ...staffPost(themeEditInput, "content_publisher"),
       description:
-        "Update an existing stable theme. Requires publication switch, fresh MFA and expected revision. Retirement is denied while playable versions reference the theme. Promotion requires three reviewed eligible cases including free solo. Slugs/IDs cannot change; creation and art upload are not provided.",
+        "Update an existing stable theme. Requires publication switch, fresh MFA and expected revision. Retirement is denied while playable versions reference the theme. Promotion requires three reviewed eligible cases including free solo. IDs remain stable; slug changes use the separate managed rename endpoint.",
     },
+  },
+  "/admin/themes/{slug}/rename": {
+    parameters: [
+      { name: "slug", in: "path", required: true, schema: { type: "string" } },
+    ],
+    post: {
+      ...staffPost(themeRenameInput, "content_publisher"),
+      description:
+        "Managed permanent slug rename retains UUID and frozen canon, reserves old slug as an alias and creates a 308 public redirect.",
+    },
+  },
+  "/admin/moods": {
+    get: {
+      security: staffSecurity,
+      responses: { "200": response(z.array(moodSchema)) },
+    },
+    post: staffPost(moodCreateInput, "content_publisher"),
+  },
+  "/admin/moods/{slug}": {
+    parameters: [
+      { name: "slug", in: "path", required: true, schema: { type: "string" } },
+    ],
+    put: staffPost(moodEditInput, "content_publisher"),
   },
   "/admin/releases/{key}/featured": {
     parameters: [
@@ -308,10 +339,65 @@ const doc = {
   },
   paths: {
     ...staffPaths,
+    "/cases": {
+      get: {
+        description:
+          "Safe deduplicated catalogue. OR within multi-value facets, AND across facets. Preview eligibility only; no owner overlay. Cursor binds canonical filters, page size, sort, market and catalogue revision. Stale cursors return409; reset cursor to restart.",
+        parameters: [
+          ...[
+            "mode",
+            "themes",
+            "moods",
+            "difficulty",
+            "duration",
+            "access",
+            "sort",
+            "cursor",
+          ].map((name) => ({ name, in: "query", schema: { type: "string" } })),
+          {
+            name: "limit",
+            in: "query",
+            schema: { type: "integer", minimum: 1, maximum: 50, default: 24 },
+          },
+        ],
+        responses: {
+          "200": response(
+            z
+              .object({
+                cases: z.array(z.object({ id: z.string() }).passthrough()),
+                total: z.number().int(),
+                revision: z.string(),
+                nextCursor: z.string().nullable(),
+                facets: z.record(
+                  z.string(),
+                  z.record(z.string(), z.number().int()),
+                ),
+              })
+              .passthrough(),
+          ),
+          "400": { description: "Invalid filter or cursor" },
+          "409": { description: "Retired filter or stale catalogue revision" },
+        },
+      },
+    },
+    "/discovery/facets": {
+      get: {
+        description:
+          "Disjunctive theme/mood/difficulty/duration/access/mode counts and exact total from one catalogue snapshot.",
+        responses: { "200": response() },
+      },
+    },
+    "/me/interests": {
+      description:
+        "Owner-only UUID taxonomy references; returned IDs come from /themes. Legacy /interests remains compatible. Writes require expectedVersion; reads return preferenceVersion.",
+      get: { responses: { "200": response(uuidInterestsSchema) } },
+      put: post(uuidInterestInput, uuidInterestsSchema),
+      delete: post(interestDeleteInput, uuidInterestsSchema),
+    },
     "/themes": {
       get: {
         description:
-          "Theme registry with distinct current preview counts under strict catalogue filters. Existing seeds have stable UUIDs but preference/filter inputs continue to use slugs. Retired entries have zero count. Reviewed supply excludes public draft fixtures. Counts/cases use one repeatable-read snapshot; no private player overlay.",
+          "Theme registry with distinct current preview counts under strict catalogue filters. Filters and legacy preferences use slugs; /me/interests uses persisted UUIDs. Retired entries have zero count. Reviewed supply excludes public draft fixtures. Counts/cases use one repeatable-read snapshot; no private player overlay.",
         parameters: [
           "mode",
           "access",

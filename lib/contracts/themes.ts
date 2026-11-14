@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { themes } from "../domain/content";
+import { taxonomySlug } from "../domain/content";
 export const themeEditInput = z
   .object({
     label: z.string().trim().min(1).max(60),
@@ -13,7 +13,7 @@ export const themeEditInput = z
   .strict();
 export const themeSchema = z.object({
   id: z.uuid(),
-  slug: z.enum(themes),
+  slug: taxonomySlug,
   label: z.string(),
   description: z.string(),
   status: z.enum(["enabled", "retired"]),
@@ -28,3 +28,33 @@ export const themeAvailability = themeSchema.extend({
   promoted: z.boolean(),
 });
 export type Theme = z.infer<typeof themeSchema>;
+
+export const themeCreateInput = themeEditInput
+  .omit({ expectedRevision: true, promoteOnHome: true })
+  .extend({ slug: taxonomySlug });
+export const themeRenameInput = z
+  .object({
+    slug: taxonomySlug,
+    expectedRevision: z.number().int().positive(),
+    reason: themeEditInput.shape.reason,
+  })
+  .strict();
+export const moodSchema = z.object({
+  id: z.uuid(),
+  slug: taxonomySlug,
+  label: z.string(),
+  status: z.enum(["enabled", "retired"]),
+  revision: z.number().int().positive(),
+});
+export const moodEditInput = z
+  .object({
+    label: themeEditInput.shape.label,
+    status: themeEditInput.shape.status,
+    expectedRevision: themeEditInput.shape.expectedRevision,
+    reason: themeEditInput.shape.reason,
+  })
+  .strict();
+export const moodCreateInput = moodEditInput
+  .omit({ expectedRevision: true })
+  .extend({ slug: taxonomySlug });
+export type Mood = z.infer<typeof moodSchema>;
