@@ -1,7 +1,12 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { Database, Sql } from "../db/types";
 import { assert } from "./errors";
-import { activeThemes } from "./themes";
+import {
+  activeThemes,
+  activeMoods,
+  themeRegistry,
+  moodRegistry,
+} from "./themes";
 import {
   emptyInterests,
   interestInput,
@@ -50,14 +55,26 @@ export async function limit(
   );
 }
 export async function interests(db: Sql, actor: string) {
-  return (
+  const saved =
     (
       await db.query<Interests>(
         'SELECT themes,moods,preferred_difficulty AS "preferredDifficulty",personalisation_enabled AS "personalisationEnabled",version FROM app_private.interests WHERE principal_id=$1',
         [actor],
       )
-    ).rows[0] ?? emptyInterests()
-  );
+    ).rows[0] ?? emptyInterests();
+  const aliases = (
+    await db.query<{ old: string; slug: string }>(
+      "SELECT a.slug AS old,t.slug FROM app_private.theme_aliases a JOIN app_private.themes t ON t.id=a.theme_id",
+    )
+  ).rows;
+  return {
+    ...saved,
+    themes: [
+      ...new Set(
+        saved.themes.map((s) => aliases.find((a) => a.old === s)?.slug ?? s),
+      ),
+    ],
+  };
 }
 export async function saveInterests(
   db: Database,
@@ -77,6 +94,11 @@ export async function saveInterests(
     await activeThemes(
       tx,
       input.themes.filter((t) => !current.themes.includes(t)),
+      true,
+    );
+    await activeMoods(
+      tx,
+      (input.moods ?? current.moods).filter((m) => !current.moods.includes(m)),
       true,
     );
     assert(
@@ -114,4 +136,46 @@ export async function lockPrincipal(db: Sql, actor: string) {
     "SESSION_REQUIRED",
     "Sign in again to continue.",
   );
+}
+
+export async function uuidInterests(db: Sql, actor: string | null) {
+  const saved = actor ? await interests(db, actor) : emptyInterests();
+  const ts = await themeRegistry(db),
+    ms = await moodRegistry(db);
+  return {
+    themeIds: ts.filter((t) => saved.themes.includes(t.slug)).map((t) => t.id),
+    moodIds: ms.filter((m) => saved.moods.includes(m.slug)).map((m) => m.id),
+    preferredDifficulty: saved.preferredDifficulty,
+    personalisationEnabled: saved.personalisationEnabled,
+    preferenceVersion: saved.version,
+  };
+}
+export async function saveUuidInterests(
+  db: Database,
+  actor: string,
+  input: import("zod").infer<
+    typeof import("../contracts/interests").uuidInterestInput
+  >,
+) {
+  const ts = await themeRegistry(db),
+    ms = await moodRegistry(db);
+  assert(
+    input.themeIds.every((id) => ts.some((t) => t.id === id)) &&
+      input.moodIds.every((id) => ms.some((m) => m.id === id)),
+    400,
+    "FILTER_INVALID",
+    "Unknown taxonomy identity.",
+  );
+  await saveInterests(
+    db,
+    actor,
+    ts.filter((t) => input.themeIds.includes(t.id)).map((t) => t.slug),
+    input.expectedVersion,
+    {
+      moods: ms.filter((m) => input.moodIds.includes(m.id)).map((m) => m.slug),
+      preferredDifficulty: input.preferredDifficulty,
+      personalisationEnabled: input.personalisationEnabled,
+    },
+  );
+  return uuidInterests(db, actor);
 }

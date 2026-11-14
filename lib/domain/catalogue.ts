@@ -15,7 +15,7 @@ export const labels: Record<string, string> = {
   intermediate: "Intermediate",
   expert: "Expert",
 };
-const list = (values: readonly string[]) =>
+const list = (values?: readonly string[], max = 100) =>
   z
     .string()
     .default("")
@@ -29,13 +29,22 @@ const list = (values: readonly string[]) =>
         ),
       ].sort(),
     )
-    .refine((xs) => xs.every((x) => values.includes(x)), "Unknown filter");
+    .refine(
+      (xs) =>
+        xs.length <= max &&
+        xs.every((x) =>
+          values
+            ? values.includes(x)
+            : /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(x) && x.length <= 80,
+        ),
+      "Unknown filter",
+    );
 const schema = z
   .object({
     mode: z.enum(["any", "solo", "group"]).default("any"),
-    themes: list(themes),
-    moods: list(moods),
-    difficulty: list(difficulties),
+    themes: list(undefined, 6),
+    moods: list(undefined, 3),
+    difficulty: list(difficulties, 3),
     duration: z
       .enum(["any", "lt10", "10to19", "20to30", "gt30"])
       .default("any"),
@@ -141,18 +150,39 @@ export function comparePublication(a: CaseCard, b: CaseCard) {
     compareCaseUuid(a, b)
   );
 }
-export function facets(cases: CaseCard[], f: Filters) {
+export function facets(
+  cases: CaseCard[],
+  f: Filters,
+  themeSlugs: readonly string[] = themes,
+  moodSlugs: readonly string[] = moods,
+) {
   return Object.fromEntries(
-    ["themes", "moods", "difficulty"].map((key) => [
-      key,
-      Object.fromEntries(
-        (key === "themes"
-          ? themes
-          : key === "moods"
-            ? moods
-            : difficulties
-        ).map((id) => [id, filterCases(cases, { ...f, [key]: [id] }).length]),
-      ),
-    ]),
+    ["themes", "moods", "difficulty", "duration", "access", "mode"].map(
+      (key) => [
+        key,
+        Object.fromEntries(
+          (key === "themes"
+            ? themeSlugs
+            : key === "moods"
+              ? moodSlugs
+              : key === "difficulty"
+                ? difficulties
+                : key === "duration"
+                  ? ["lt10", "10to19", "20to30", "gt30"]
+                  : key === "access"
+                    ? ["free", "paid"]
+                    : ["solo", "group"]
+          ).map((id) => [
+            id,
+            filterCases(cases, {
+              ...f,
+              [key]: ["themes", "moods", "difficulty"].includes(key)
+                ? [id]
+                : id,
+            }).length,
+          ]),
+        ),
+      ],
+    ),
   );
 }

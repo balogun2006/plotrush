@@ -8,6 +8,7 @@ export const themes = [
   "everyday-mystery",
 ] as const;
 export const moods = ["lighthearted", "suspenseful", "dark"] as const;
+export const taxonomySlug = z.string().min(1).max(80).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
 export const difficulties = ["beginner", "intermediate", "expert"] as const;
 const clue = z.object({
   id: z.string(),
@@ -50,9 +51,9 @@ export const caseSchema = z
       eliminations: z.record(z.string(), z.string()),
     }),
     discovery: z.object({
-      primaryTheme: z.enum(themes),
-      themes: z.array(z.enum(themes)).min(1).max(3),
-      moods: z.array(z.enum(moods)).min(1).max(2),
+      primaryTheme: taxonomySlug,
+      themes: z.array(taxonomySlug).min(1).max(3),
+      moods: z.array(taxonomySlug).min(1).max(2),
       difficulty: z.enum(difficulties),
       contentWarnings: z.array(z.string()),
       estimatedDurationMinutes: z.object({
@@ -110,6 +111,7 @@ export function card(c: Case) {
 }
 export type CaseCard = ReturnType<typeof card> & {
   themeLabels?: Record<string, string>;
+  moodLabels?: Record<string, string>;
   caseUuid?: string;
   firstPublishedAt?: string | null;
   featuredRank?: number | null;

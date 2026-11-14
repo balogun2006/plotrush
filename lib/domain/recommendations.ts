@@ -10,7 +10,7 @@ import {
 import { assert } from "./errors";
 import { emptyInterests, type Interests } from "../contracts/interests";
 import type { CaseCard } from "./content";
-import { activeThemes } from "./themes";
+import { activeThemes, activeMoods } from "./themes";
 
 export function preferenceScore(c: CaseCard, saved: Interests) {
   if (!saved.personalisationEnabled)
@@ -26,7 +26,9 @@ export function preferenceScore(c: CaseCard, saved: Interests) {
     theme
       ? `your interest in ${c.themeLabels?.[theme] ?? labels[theme]}`
       : null,
-    mood ? `your ${labels[mood].toLowerCase()} mood preference` : null,
+    mood
+      ? `your ${(c.moodLabels?.[mood] ?? labels[mood] ?? mood).toLowerCase()} mood preference`
+      : null,
     difficulty
       ? `your ${labels[c.discovery.difficulty].toLowerCase()} difficulty preference`
       : null,
@@ -78,6 +80,7 @@ export async function recommendations(
   if (!filters.has("access")) filters.set("access", "free");
   const parsedFilters = parseFilters(filters);
   await activeThemes(db, parsedFilters.themes);
+  await activeMoods(db, parsedFilters.moods);
   const eligible = filterCases(await publicCases(db), parsedFilters);
   const saved = actor ? await interests(db, actor) : emptyInterests();
   const personalised = !!(

@@ -8,7 +8,7 @@ import {
   featuredInput,
 } from "../contracts/editorial";
 import type { Case } from "./content";
-import { activeThemes } from "./themes";
+import { activeThemes, activeMoods } from "./themes";
 export type StaffContext = {
   actor: string;
   playerToken: string;
@@ -250,6 +250,7 @@ export async function transition(
         versionId = c.key + ":" + checksum;
       await tx.query("SELECT pg_advisory_xact_lock(442712)");
       await activeThemes(tx, c.discovery.themes, true);
+      await activeMoods(tx, c.discovery.moods, true);
       const slug = await tx.query(
         "SELECT 1 FROM app_private.case_releases r JOIN app_private.case_versions v ON v.id=r.version_id WHERE r.case_key<>$1 AND v.content->>'slug'=$2",
         [c.key, c.slug],
@@ -270,6 +271,10 @@ export async function transition(
           [c.key, checksum],
         )
       ).rows[0];
+      await tx.query(
+        "UPDATE app_private.case_discovery_metadata SET warnings_reviewed_at=coalesce(warnings_reviewed_at,now()) WHERE case_version_id=$1",
+        [v.id],
+      );
       await tx.query(
         "UPDATE app_private.case_versions SET status='published' WHERE id=$1",
         [v.id],

@@ -7,15 +7,23 @@ import {
   createIdentity,
   saveInterests,
   interests,
+  uuidInterests,
+  saveUuidInterests,
 } from "../lib/domain/identity";
 import { enroll, unlock, type StaffRole } from "../lib/domain/staff";
 import { totp } from "../lib/security/totp";
 import * as editorial from "../lib/domain/editorial";
 import { themeRegistry } from "../lib/domain/themes";
 import { discoverySnapshot, themePage } from "../lib/domain/discovery";
-import { editTheme, listThemeEditorial } from "../lib/domain/theme-editorial";
+import {
+  editTheme,
+  listThemeEditorial,
+  createTheme,
+  renameTheme,
+  writeMood,
+} from "../lib/domain/theme-editorial";
 import { parseFilters, modeFor } from "../lib/domain/catalogue";
-import { catalogue } from "../lib/domain/game";
+import { catalogue, start, read } from "../lib/domain/game";
 import { preferenceScore } from "../lib/domain/recommendations";
 import { emptyInterests } from "../lib/contracts/interests";
 import { card } from "../lib/domain/content";
@@ -374,4 +382,289 @@ it("preserves selected mode/duration and does not advertise unsupported free gro
   expect(modeFor(tutorial, parseFilters(q("mode=any&duration=lt10")))).toBe(
     "solo",
   );
+});
+
+it("binds cursor pages to filters, limits and catalogue revisions without duplicate cases", async () => {
+  const query = "mode=solo&access=free&limit=2";
+  const first = await discoverySnapshot(db, q(query));
+  expect(first.total).toBeGreaterThanOrEqual(3);
+  expect(first.cases).toHaveLength(2);
+  expect(first.nextCursor).toBeTruthy();
+  const next = await discoverySnapshot(
+    db,
+    q(query + "&cursor=" + first.nextCursor),
+  );
+  expect(next.total).toBe(first.total);
+  expect(next.cases.every((c) => !first.cases.some((x) => x.id === c.id))).toBe(
+    true,
+  );
+  expect(first.facets.duration.lt10).toBeGreaterThanOrEqual(3);
+  await expect(
+    discoverySnapshot(db, q("mode=group&limit=2&cursor=" + first.nextCursor)),
+  ).rejects.toMatchObject({ status: 400, code: "CURSOR_INVALID" });
+  await expect(
+    discoverySnapshot(db, q(query + "&cursor=not-a-cursor")),
+  ).rejects.toMatchObject({ status: 400 });
+  const t = await theme("cold-case");
+  await editTheme(
+    db,
+    publisher,
+    t.slug,
+    input(t, { description: t.description + " Updated." }),
+    true,
+  );
+  await expect(
+    discoverySnapshot(db, q(query + "&cursor=" + first.nextCursor)),
+  ).rejects.toMatchObject({ status: 409, code: "CURSOR_STALE" });
+  await expect(
+    discoverySnapshot(db, q("themes=not-in-registry")),
+  ).rejects.toMatchObject({ status: 400 });
+  await expect(
+    discoverySnapshot(db, q("moods=not-in-registry")),
+  ).rejects.toMatchObject({ status: 400 });
+});
+it("creates taxonomy with role, publication and concurrent namespace protection", async () => {
+  const b = {
+    slug: "record-room",
+    label: "Record Room",
+    description: "Synthetic tag for an automated record investigation.",
+    displayOrder: 20,
+    status: "enabled",
+    reason: "Synthetic taxonomy creation test only.",
+  };
+  await expect(createTheme(db, editor, b, true)).rejects.toMatchObject({
+    status: 403,
+  });
+  await expect(createTheme(db, publisher, b, false)).rejects.toMatchObject({
+    status: 503,
+  });
+  const result = await Promise.allSettled([
+    createTheme(db, publisher, b, true),
+    createTheme(db, publisher, b, true),
+  ]);
+  expect(result.filter((x) => x.status === "fulfilled")).toHaveLength(1);
+  const m = await writeMood(
+    db,
+    publisher,
+    null,
+    {
+      slug: "reflective",
+      label: "Reflective",
+      status: "enabled",
+      reason: b.reason,
+    },
+    true,
+  );
+  await expect(
+    writeMood(
+      db,
+      finance,
+      m.slug,
+      {
+        label: "No",
+        status: "enabled",
+        expectedRevision: m.revision,
+        reason: b.reason,
+      },
+      true,
+    ),
+  ).rejects.toMatchObject({ status: 403 });
+  await expect(
+    writeMood(
+      db,
+      publisher,
+      m.slug,
+      {
+        label: m.label,
+        status: "enabled",
+        expectedRevision: 20,
+        reason: b.reason,
+      },
+      true,
+    ),
+  ).rejects.toMatchObject({ status: 409 });
+});
+it("publishes relational tags and keeps UUID preferences and frozen games through managed renames", async () => {
+  const t = await theme("record-room"),
+    m = (
+      await db.query<{ id: string }>(
+        "SELECT id FROM app_private.moods WHERE slug='reflective'",
+      )
+    ).rows[0];
+  const who = await createIdentity(db);
+  await saveUuidInterests(db, who.id, {
+    themeIds: [t.id],
+    moodIds: [m.id],
+    preferredDifficulty: null,
+    personalisationEnabled: true,
+    expectedVersion: 0,
+  });
+  const c = structuredClone(source);
+  c.key = "taxonomy-projection-test";
+  c.slug = c.key;
+  c.discovery.themes = [t.slug, "everyday-mystery"];
+  c.discovery.primaryTheme = t.slug;
+  c.discovery.moods = ["reflective"];
+  await publish(c);
+  const attempt = await start(db, who.id, c.key);
+  const original = await read(db, who.id, attempt.id);
+  const checksum = (
+    await db.query<{ checksum: string }>(
+      "SELECT checksum FROM app_private.case_versions WHERE case_key=$1",
+      [c.key],
+    )
+  ).rows[0].checksum;
+  const renamed = await renameTheme(
+    db,
+    publisher,
+    t.slug,
+    {
+      slug: "record-investigations",
+      expectedRevision: t.revision,
+      reason: "Synthetic managed rename for preservation testing.",
+    },
+    true,
+  );
+  expect(renamed.id).toBe(t.id);
+  expect(
+    (await catalogue(db)).find((x) => x.id === c.key)?.discovery.primaryTheme,
+  ).toBe(renamed.slug);
+  expect((await interests(db, who.id)).themes).toEqual([renamed.slug]);
+  expect((await uuidInterests(db, who.id)).themeIds).toEqual([t.id]);
+  expect(await read(db, who.id, attempt.id)).toEqual(original);
+  await expect(
+    createTheme(
+      db,
+      publisher,
+      {
+        slug: t.slug,
+        label: "Conflict",
+        description: "Reserved old URL must remain unavailable for reuse.",
+        displayOrder: 20,
+        status: "enabled",
+        reason: "Synthetic alias reuse denial test.",
+      },
+      true,
+    ),
+  ).rejects.toMatchObject({ status: 409 });
+  await expect(
+    editTheme(
+      db,
+      publisher,
+      renamed.slug,
+      input(renamed, { status: "retired" }),
+      true,
+    ),
+  ).rejects.toMatchObject({ status: 409 });
+  await expect(
+    writeMood(
+      db,
+      publisher,
+      "reflective",
+      {
+        label: "Reflective",
+        status: "retired",
+        expectedRevision: 1,
+        reason: "Synthetic in-use mood retirement test.",
+      },
+      true,
+    ),
+  ).rejects.toMatchObject({ status: 409 });
+  await migrate(db);
+  await seedDrafts(db);
+  expect((await themeRegistry(db)).some((x) => x.slug === t.slug)).toBe(false);
+  expect((await theme(renamed.slug)).id).toBe(t.id);
+  expect(
+    (
+      await db.query<{ checksum: string }>(
+        "SELECT checksum FROM app_private.case_versions WHERE case_key=$1",
+        [c.key],
+      )
+    ).rows[0].checksum,
+  ).toBe(checksum);
+  expect((await uuidInterests(db, who.id)).moodIds).toEqual([m.id]);
+  const saved = await uuidInterests(db, who.id);
+  await expect(
+    saveUuidInterests(db, who.id, {
+      themeIds: [randomUUID()],
+      moodIds: [],
+      preferredDifficulty: null,
+      personalisationEnabled: true,
+      expectedVersion: saved.preferenceVersion,
+    }),
+  ).rejects.toMatchObject({ status: 400 });
+  const other = await createIdentity(db);
+  expect((await uuidInterests(db, other.id)).themeIds).toEqual([]);
+  await expect(
+    db.query(
+      "INSERT INTO app_private.case_version_themes(case_version_id,theme_id,is_primary) SELECT id,$1,false FROM app_private.case_versions LIMIT 1",
+      [randomUUID()],
+    ),
+  ).rejects.toThrow();
+});
+it("tag revisions change only the current catalogue and retain historical metadata", async () => {
+  const t = await theme("record-investigations"),
+    who = await createIdentity(db);
+  const attempt = await start(db, who.id, "taxonomy-projection-test"),
+    before = await read(db, who.id, attempt.id);
+  const c = structuredClone(source);
+  c.key = "taxonomy-projection-test";
+  c.slug = c.key;
+  c.discovery.themes = ["everyday-mystery"];
+  c.discovery.primaryTheme = "everyday-mystery";
+  c.discovery.moods = ["lighthearted"];
+  await publish(c);
+  expect(
+    (await catalogue(db)).find((x) => x.id === c.key)?.discovery.themes,
+  ).toEqual(["everyday-mystery"]);
+  expect(await read(db, who.id, attempt.id)).toEqual(before);
+  const old = (
+    await db.query<{ count: number }>(
+      "SELECT count(*)::int AS count FROM app_private.case_version_themes WHERE theme_id=$1",
+      [t.id],
+    )
+  ).rows[0].count;
+  expect(old).toBe(1);
+  await editTheme(db, publisher, t.slug, input(t, { status: "retired" }), true);
+  expect((await themePage(db, t.slug, parseFilters(q()))).cases).toEqual([]);
+  expect(await read(db, who.id, attempt.id)).toEqual(before);
+});
+it("retired moods preserve existing choices but reject new selections", async () => {
+  const m = await writeMood(
+      db,
+      publisher,
+      null,
+      {
+        slug: "quiet",
+        label: "Quiet",
+        status: "enabled",
+        reason: "Synthetic empty mood retirement check.",
+      },
+      true,
+    ),
+    who = await createIdentity(db);
+  await saveInterests(db, who.id, [], 0, { moods: [m.slug] });
+  await writeMood(
+    db,
+    publisher,
+    m.slug,
+    {
+      label: m.label,
+      status: "retired",
+      expectedRevision: 1,
+      reason: "Synthetic empty mood retirement check.",
+    },
+    true,
+  );
+  await saveInterests(db, who.id, [], 1, { personalisationEnabled: false });
+  expect((await interests(db, who.id)).moods).toEqual([m.slug]);
+  const other = await createIdentity(db);
+  await expect(
+    saveInterests(db, other.id, [], 0, { moods: [m.slug] }),
+  ).rejects.toMatchObject({ status: 409 });
+  await expect(
+    discoverySnapshot(db, q("moods=" + m.slug)),
+  ).rejects.toMatchObject({ status: 409 });
+  await saveInterests(db, who.id, [], 2, { moods: [] });
+  expect((await interests(db, who.id)).moods).toEqual([]);
 });

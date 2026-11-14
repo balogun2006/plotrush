@@ -325,7 +325,10 @@ test("independent staff draft, review, publish and withdraw a version without ex
     expect(
       (await page.request.get("/api/v1/cases?themes=supernatural")).status(),
     ).toBe(409);
-    await page.goto("/themes/supernatural?mode=group&access=free");
+    const retiredPage = await page.goto(
+      "/themes/supernatural?mode=group&access=free",
+    );
+    expect(retiredPage?.status()).toBe(410);
     await expect(
       page.getByRole("heading", {
         name: "Supernatural is unavailable",
@@ -343,6 +346,117 @@ test("independent staff draft, review, publish and withdraw a version without ex
       .click();
     await expect(
       publisher.getByText("Theme changes saved.", { exact: true }),
+    ).toBeVisible();
+    const customSlug = "browser-theme-" + info.project.name,
+      renamedSlug = customSlug + "-renamed";
+    await publisher
+      .getByText("Create a theme or mood", { exact: true })
+      .click();
+    await publisher
+      .getByLabel("New taxonomy slug", { exact: true })
+      .fill(customSlug);
+    await publisher
+      .getByLabel("New taxonomy label", { exact: true })
+      .fill("Synthetic browser theme");
+    await publisher
+      .getByLabel("New theme description", { exact: true })
+      .fill("Synthetic taxonomy browser acceptance only.");
+    await publisher
+      .getByLabel("Creation reason", { exact: true })
+      .fill("Synthetic creation check without new public content.");
+    await publisher
+      .getByRole("button", { name: "Create taxonomy entry", exact: true })
+      .click();
+    await expect(
+      publisher.getByRole("button", {
+        name: "Save theme " + customSlug,
+        exact: true,
+      }),
+    ).toBeVisible();
+    await publisher
+      .getByLabel("New URL slug for " + customSlug, { exact: true })
+      .fill(renamedSlug);
+    await publisher
+      .getByLabel("Change reason for " + customSlug, { exact: true })
+      .fill("Synthetic managed rename redirect acceptance check.");
+    await publisher
+      .getByRole("button", { name: "Rename theme " + customSlug, exact: true })
+      .click();
+    await expect(
+      publisher.getByRole("button", {
+        name: "Save theme " + renamedSlug,
+        exact: true,
+      }),
+    ).toBeVisible();
+    const alias = await page.request.get(
+      "/themes/" + customSlug + "?mode=group&access=free",
+      { maxRedirects: 0 },
+    );
+    expect(alias.status()).toBe(308);
+    expect(alias.headers().location).toContain(
+      "/themes/" + renamedSlug + "?mode=group&access=free",
+    );
+    expect(
+      (
+        await page.request.get("/api/v1/themes/" + customSlug, {
+          maxRedirects: 0,
+        })
+      ).status(),
+    ).toBe(308);
+    await publisher
+      .getByLabel("Status for " + renamedSlug, { exact: true })
+      .selectOption("retired");
+    await publisher
+      .getByLabel("Change reason for " + renamedSlug, { exact: true })
+      .fill("Synthetic empty theme retirement acceptance check.");
+    await publisher
+      .getByRole("button", { name: "Save theme " + renamedSlug, exact: true })
+      .click();
+    await expect(
+      publisher.getByText("Theme changes saved.", { exact: true }),
+    ).toBeVisible();
+    expect(
+      (
+        await page.goto("/themes/" + renamedSlug + "?mode=group&access=free")
+      )?.status(),
+    ).toBe(410);
+    const moodSlug = "browser-mood-" + info.project.name;
+    await publisher
+      .getByLabel("Taxonomy kind", { exact: true })
+      .selectOption("mood");
+    await publisher
+      .getByLabel("New taxonomy slug", { exact: true })
+      .fill(moodSlug);
+    await publisher
+      .getByLabel("New taxonomy label", { exact: true })
+      .fill("Synthetic browser mood");
+    await publisher
+      .getByLabel("Creation reason", { exact: true })
+      .fill("Synthetic mood creation acceptance check.");
+    await publisher
+      .getByRole("button", { name: "Create taxonomy entry", exact: true })
+      .click();
+    await expect(
+      publisher.getByText(
+        "Synthetic browser mood · " + moodSlug + " · revision 1",
+        { exact: true },
+      ),
+    ).toBeAttached();
+    await publisher.getByText("Manage moods", { exact: true }).click();
+    await publisher
+      .getByLabel("Status for mood " + moodSlug, { exact: true })
+      .selectOption("retired");
+    await publisher
+      .getByLabel("Reason for mood " + moodSlug, { exact: true })
+      .fill("Synthetic empty mood retirement acceptance check.");
+    await publisher
+      .getByRole("button", { name: "Save mood " + moodSlug, exact: true })
+      .click();
+    await expect(
+      publisher.getByText(
+        "Synthetic browser mood · " + moodSlug + " · revision 2",
+        { exact: true },
+      ),
     ).toBeVisible();
     await publisher
       .getByRole("button", { name: "Lock workspace", exact: true })

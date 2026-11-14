@@ -7,13 +7,21 @@ CREATE TABLE IF NOT EXISTS app_private.themes (
  promote_on_home boolean NOT NULL DEFAULT false,
  revision integer NOT NULL DEFAULT 1 CHECK(revision>0)
 );
-INSERT INTO app_private.themes(slug,label,description,display_order) VALUES
+CREATE TABLE IF NOT EXISTS app_private.theme_aliases (
+ slug text PRIMARY KEY CHECK(slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$'),
+ theme_id uuid NOT NULL REFERENCES app_private.themes(id),created_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE app_private.theme_aliases ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON app_private.theme_aliases FROM PUBLIC;
+INSERT INTO app_private.themes(slug,label,description,display_order)
+ SELECT seed.* FROM (VALUES
  ('thriller','Thriller','Suspense-led investigations with meaningful stakes.',1),
  ('cold-case','Cold Case','Older unresolved cases reopened through records and new evidence.',2),
  ('wedding-family','Wedding & Family','Mysteries around celebrations, relationships and family gatherings.',3),
  ('heist','Heist','Investigations of planned thefts and their execution.',4),
  ('supernatural','Supernatural','Cases involving apparent paranormal events; resolution scope is disclosed.',5),
- ('everyday-mystery','Everyday Mystery','Smaller contemporary puzzles from ordinary settings.',6)
+ ('everyday-mystery','Everyday Mystery','Smaller contemporary puzzles from ordinary settings.',6)) seed(slug,label,description,display_order)
+ WHERE NOT EXISTS(SELECT 1 FROM app_private.theme_aliases a WHERE a.slug=seed.slug)
  ON CONFLICT(slug) DO NOTHING;
 CREATE OR REPLACE FUNCTION app_private.keep_theme_identity() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
