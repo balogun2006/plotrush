@@ -2241,6 +2241,115 @@
         "x-staff-role": "content_publisher"
       }
     },
+    "/recommendations": {
+      "get": {
+        "description": "Private preview-theme-v2 recommendations. Defaults to free solo cases. Previously started solo cases and group evidence exposure are excluded across versions and modes. Opt-in replays are returned separately. Theme overlap scores three points once; preview ties use stable case keys. Mood/difficulty preferences and editorial ordering remain pending.",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10,
+              "default": 10
+            }
+          },
+          {
+            "name": "includeCompleted",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          {
+            "name": "mode",
+            "in": "query",
+            "description": "Uses the strict catalogue filter contract; comma-separated values for themes, moods and difficulty.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "access",
+            "in": "query",
+            "description": "Uses the strict catalogue filter contract; comma-separated values for themes, moods and difficulty.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "themes",
+            "in": "query",
+            "description": "Uses the strict catalogue filter contract; comma-separated values for themes, moods and difficulty.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "moods",
+            "in": "query",
+            "description": "Uses the strict catalogue filter contract; comma-separated values for themes, moods and difficulty.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "difficulty",
+            "in": "query",
+            "description": "Uses the strict catalogue filter contract; comma-separated values for themes, moods and difficulty.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "duration",
+            "in": "query",
+            "description": "Uses the strict catalogue filter contract; comma-separated values for themes, moods and difficulty.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "description": "Uses the strict catalogue filter contract; comma-separated values for themes, moods and difficulty.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response in the data/meta envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {},
+                    "meta": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or repeated filters"
+          },
+          "429": {
+            "description": "Recommendation read limit exceeded"
+          }
+        }
+      }
+    },
     "/daily": {
       "get": {
         "responses": {

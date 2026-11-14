@@ -251,6 +251,44 @@ const doc = {
   },
   paths: {
     ...staffPaths,
+    "/recommendations": {
+      get: {
+        description:
+          "Private preview-theme-v2 recommendations. Defaults to free solo cases. Previously started solo cases and group evidence exposure are excluded across versions and modes. Opt-in replays are returned separately. Theme overlap scores three points once; preview ties use stable case keys. Mood/difficulty preferences and editorial ordering remain pending.",
+        parameters: [
+          {
+            name: "limit",
+            in: "query",
+            schema: { type: "integer", minimum: 1, maximum: 10, default: 10 },
+          },
+          {
+            name: "includeCompleted",
+            in: "query",
+            schema: { type: "boolean", default: false },
+          },
+          ...[
+            "mode",
+            "access",
+            "themes",
+            "moods",
+            "difficulty",
+            "duration",
+            "sort",
+          ].map((name) => ({
+            name,
+            in: "query",
+            description:
+              "Uses the strict catalogue filter contract; comma-separated values for themes, moods and difficulty.",
+            schema: { type: "string" },
+          })),
+        ],
+        responses: {
+          "200": response(),
+          "400": { description: "Invalid or repeated filters" },
+          "429": { description: "Recommendation read limit exceeded" },
+        },
+      },
+    },
     "/daily": { get: { responses: { "200": response(dailySchema) } } },
     "/daily/start": {
       post: {

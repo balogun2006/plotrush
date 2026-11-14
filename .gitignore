@@ -6,6 +6,7 @@
 
 # Future app dependencies and builds.
 node_modules/
+.pnpm-store/
 .next/
 out/
 dist/
