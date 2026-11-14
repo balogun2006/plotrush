@@ -64,7 +64,11 @@ it("upgrades one guest without losing notes, interests or group seat, rotates se
     expectedVersion: a.stateVersion,
     text: "Keep these private notes",
   });
-  await saveInterests(db, g.id, ["cold-case"], 0);
+  await saveInterests(db, g.id, ["cold-case"], 0, {
+    moods: ["dark"],
+    preferredDifficulty: "expert",
+    personalisationEnabled: false,
+  });
   const room = await createRoom(db, g.id, "missing-mic", "Me");
   const c = await requestCode(db, g.id, "UPGRADE@example.test", secret, mailer),
     v = await verifyCode(
@@ -82,6 +86,11 @@ it("upgrades one guest without losing notes, interests or group seat, rotates se
   expect(await identity(db, v.token)).toBe(g.id);
   expect((await read(db, g.id, a.id)).notes).toContain("private notes");
   expect((await interests(db, g.id)).themes).toEqual(["cold-case"]);
+  expect(await interests(db, g.id)).toMatchObject({
+    moods: ["dark"],
+    preferredDifficulty: "expert",
+    personalisationEnabled: false,
+  });
   expect((await roomAction(db, g.id, room.room.id)).seat).toBe(0);
 });
 it("rejects wrong principal, replay, expired and superseded challenges", async () => {
@@ -176,8 +185,14 @@ it("requires explicit merge after fresh email proof and retains both active hist
     expectedVersion: two.stateVersion,
     text: "Source notes",
   });
-  await saveInterests(db, target, ["thriller"], 0);
-  await saveInterests(db, source.id, ["cold-case"], 0);
+  await saveInterests(db, target, ["thriller"], 0, {
+    moods: ["dark"],
+    personalisationEnabled: false,
+  });
+  await saveInterests(db, source.id, ["cold-case"], 0, {
+    moods: ["lighthearted"],
+    preferredDifficulty: "beginner",
+  });
   const c = await requestCode(db, source.id, email, secret, mailer),
     code = inbox.get(c.challengeId)!;
   await expect(
@@ -198,10 +213,9 @@ it("requires explicit merge after fresh email proof and retains both active hist
   expect((await read(db, target, one.id)).state).toBe("investigating");
   expect((await read(db, target, two.id)).state).toBe("abandoned");
   expect((await read(db, target, two.id)).notes).toBe("Source notes");
-  expect((await interests(db, target)).themes).toEqual([
-    "thriller",
-    "cold-case",
-  ]);
+  expect((await interests(db, target)).themes).toEqual(["thriller"]);
+  expect((await interests(db, target)).personalisationEnabled).toBe(false);
+  expect((await interests(db, target)).moods).toEqual(["dark"]);
   await expect(read(db, source.id, two.id)).rejects.toMatchObject({
     status: 401,
   });
@@ -213,6 +227,84 @@ it("requires explicit merge after fresh email proof and retains both active hist
       )
     ).rows,
   ).toHaveLength(1);
+});
+it("preserves cleared account interests unless guest replacement is explicitly chosen", async () => {
+  for (const replace of [false, true]) {
+    const email = randomUUID() + "@example.test",
+      target = await verified(email),
+      source = await guest();
+    await saveInterests(db, target, [], 0, {
+      moods: [],
+      preferredDifficulty: null,
+      personalisationEnabled: false,
+    });
+    await saveInterests(db, source.id, ["heist"], 0, {
+      moods: ["suspenseful"],
+      preferredDifficulty: "expert",
+    });
+    const challenge = await requestCode(db, source.id, email, secret, mailer);
+    await verifyCode(
+      db,
+      source.id,
+      challenge.challengeId,
+      inbox.get(challenge.challengeId)!,
+      secret,
+      true,
+      replace,
+    );
+    const result = await interests(db, target);
+    expect(result.themes).toEqual(replace ? ["heist"] : []);
+    expect(result.personalisationEnabled).toBe(replace);
+    expect(result.preferredDifficulty).toBe(replace ? "expert" : null);
+    expect((await interests(db, source.id)).version).toBe(0);
+  }
+});
+it("carries all guest preferences into an account with no saved choices", async () => {
+  const email = randomUUID() + "@example.test",
+    target = await verified(email),
+    source = await guest();
+  await saveInterests(db, source.id, ["heist"], 0, {
+    moods: ["dark"],
+    preferredDifficulty: "intermediate",
+    personalisationEnabled: false,
+  });
+  const challenge = await requestCode(db, source.id, email, secret, mailer);
+  await verifyCode(
+    db,
+    source.id,
+    challenge.challengeId,
+    inbox.get(challenge.challengeId)!,
+    secret,
+    true,
+  );
+  expect(await interests(db, target)).toMatchObject({
+    themes: ["heist"],
+    moods: ["dark"],
+    preferredDifficulty: "intermediate",
+    personalisationEnabled: false,
+  });
+});
+it("honours explicit replacement even when the guest has no saved choices", async () => {
+  const email = randomUUID() + "@example.test",
+    target = await verified(email),
+    source = await guest();
+  await saveInterests(db, target, ["heist"], 0, { moods: ["dark"] });
+  const challenge = await requestCode(db, source.id, email, secret, mailer);
+  await verifyCode(
+    db,
+    source.id,
+    challenge.challengeId,
+    inbox.get(challenge.challengeId)!,
+    secret,
+    true,
+    true,
+  );
+  expect(await interests(db, target)).toMatchObject({
+    themes: [],
+    moods: [],
+    preferredDifficulty: null,
+    version: 2,
+  });
 });
 it("defers cross-account merge during active groups, preserves membership after leaving", async () => {
   const email = "roommerge@example.test",

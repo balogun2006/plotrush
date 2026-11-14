@@ -19,6 +19,11 @@ import {
   unpublishInput,
 } from "../lib/contracts/editorial";
 import { dailySchema, dailyStartInput } from "../lib/contracts/daily";
+import {
+  interestInput,
+  interestDeleteInput,
+  interestsSchema,
+} from "../lib/contracts/interests";
 import { readFile, writeFile } from "node:fs/promises";
 import { z } from "zod";
 import {
@@ -251,10 +256,34 @@ const doc = {
   },
   paths: {
     ...staffPaths,
+    "/interests": {
+      description:
+        "Private preview interests use validated stable taxonomy slugs, not UUIDs. Legacy theme-only PUT requests preserve omitted mood/difficulty/opt-out fields. DELETE removes selections and disables personalisation; only a version tombstone remains for stale-write protection. Guest GET returns defaults without creating an identity. PUT can create a guest identity; DELETE requires an existing session.",
+      get: { responses: { "200": response(interestsSchema) } },
+      put: {
+        ...post(interestInput, interestsSchema),
+        responses: {
+          "200": response(interestsSchema),
+          "400": { description: "Invalid choices" },
+          "403": { description: "Origin denied" },
+          "409": { description: "Stale preference version" },
+          "429": { description: "Write rate exceeded" },
+        },
+      },
+      delete: {
+        ...post(interestDeleteInput, interestsSchema),
+        responses: {
+          "200": response(interestsSchema),
+          "401": { description: "Session required" },
+          "403": { description: "Origin denied" },
+          "409": { description: "Stale preference version" },
+        },
+      },
+    },
     "/recommendations": {
       get: {
         description:
-          "Private preview-theme-v2 recommendations. Defaults to free solo cases. Previously started solo cases and group evidence exposure are excluded across versions and modes. Opt-in replays are returned separately. Theme overlap scores three points once; preview ties use stable case keys. Mood/difficulty preferences and editorial ordering remain pending.",
+          "Private preview-preferences-v3 recommendations. Defaults to free solo cases. Previously started solo cases and group evidence exposure are excluded across versions and modes; exposedCount counts these case keys. Opt-in replays are returned separately. Scores +3 for any theme match, +2 for any mood match and +1 for preferred difficulty. Opt-out ignores saved choices and labels Featured mysteries. Preview ties use stable case keys; editorial/publication ordering remains pending.",
         parameters: [
           {
             name: "limit",

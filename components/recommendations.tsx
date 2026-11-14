@@ -15,16 +15,33 @@ export function Recommendations() {
     [includeCompleted, setIncludeCompleted] = useState(false);
   useEffect(() => {
     let live = true;
-    api<typeof data>(`recommendations?includeCompleted=${includeCompleted}`)
-      .then((r) => {
-        if (live) setData(r);
-      })
-      .catch(() => {
-        if (live)
-          setError("Cases could not load. Please refresh to try again.");
-      });
+    let sequence = 0;
+    function refresh() {
+      const request = ++sequence;
+      api<typeof data>(`recommendations?includeCompleted=${includeCompleted}`)
+        .then((r) => {
+          if (live && request === sequence) {
+            setData(r);
+            setError("");
+          }
+        })
+        .catch(() => {
+          if (live && request === sequence)
+            setError("Cases could not load. Please refresh to try again.");
+        });
+    }
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === "plotrush:interests-changed") refresh();
+    };
+    refresh();
+    window.addEventListener("focus", refresh);
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("plotrush:interests-changed", refresh);
     return () => {
       live = false;
+      window.removeEventListener("focus", refresh);
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("plotrush:interests-changed", refresh);
     };
   }, [includeCompleted]);
   return (

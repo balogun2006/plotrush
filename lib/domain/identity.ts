@@ -1,6 +1,12 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { Database, Sql } from "../db/types";
 import { assert } from "./errors";
+import {
+  emptyInterests,
+  interestInput,
+  type Interests,
+  type InterestOptions,
+} from "../contracts/interests";
 export const hash = (s: string) => createHash("sha256").update(s).digest("hex");
 export async function identity(db: Sql, token?: string) {
   if (!token || !/^[a-f0-9]{64}$/.test(token)) return null;
@@ -45,11 +51,11 @@ export async function limit(
 export async function interests(db: Sql, actor: string) {
   return (
     (
-      await db.query<{ themes: string[]; version: number }>(
-        "SELECT themes,version FROM app_private.interests WHERE principal_id=$1",
+      await db.query<Interests>(
+        'SELECT themes,moods,preferred_difficulty AS "preferredDifficulty",personalisation_enabled AS "personalisationEnabled",version FROM app_private.interests WHERE principal_id=$1',
         [actor],
       )
-    ).rows[0] ?? { themes: [], version: 0 }
+    ).rows[0] ?? emptyInterests()
   );
 }
 export async function saveInterests(
@@ -57,7 +63,9 @@ export async function saveInterests(
   actor: string,
   themes: string[],
   expectedVersion: number,
+  options: InterestOptions = {},
 ) {
+  const input = interestInput.parse({ ...options, themes, expectedVersion });
   return db.transaction(async (tx) => {
     await lockPrincipal(tx, actor);
     await tx.query(
@@ -72,8 +80,16 @@ export async function saveInterests(
       "Your interests changed. Reload and try again.",
     );
     await tx.query(
-      "INSERT INTO app_private.interests(principal_id,themes) VALUES($1,$2) ON CONFLICT(principal_id) DO UPDATE SET themes=excluded.themes,version=app_private.interests.version+1,updated_at=now()",
-      [actor, JSON.stringify(themes)],
+      "INSERT INTO app_private.interests(principal_id,themes,moods,preferred_difficulty,personalisation_enabled) VALUES($1,$2,$3,$4,$5) ON CONFLICT(principal_id) DO UPDATE SET themes=excluded.themes,moods=excluded.moods,preferred_difficulty=excluded.preferred_difficulty,personalisation_enabled=excluded.personalisation_enabled,version=app_private.interests.version+1,updated_at=now()",
+      [
+        actor,
+        JSON.stringify(input.themes),
+        JSON.stringify(input.moods ?? current.moods),
+        input.preferredDifficulty === undefined
+          ? current.preferredDifficulty
+          : input.preferredDifficulty,
+        input.personalisationEnabled ?? current.personalisationEnabled,
+      ],
     );
     return interests(tx, actor);
   });

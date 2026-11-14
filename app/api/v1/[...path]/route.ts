@@ -6,4 +6,4 @@ type Context = { params: Promise<{ path: string[] }> };
 async function route(req: NextRequest, context: Context) {
   return handle(req, (await context.params).path);
 }
-export { route as GET, route as POST, route as PUT };
+export { route as GET, route as POST, route as PUT, route as DELETE };

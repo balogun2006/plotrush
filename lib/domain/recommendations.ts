@@ -3,6 +3,40 @@ import { catalogue } from "./game";
 import { interests } from "./identity";
 import { filterCases, labels, parseFilters } from "./catalogue";
 import { assert } from "./errors";
+import { emptyInterests, type Interests } from "../contracts/interests";
+import type { CaseCard } from "./content";
+
+export function preferenceScore(c: CaseCard, saved: Interests) {
+  if (!saved.personalisationEnabled)
+    return {
+      rank: 0,
+      reasonCode: "AVAILABLE_CASE",
+      recommendationReason: "A mystery to try",
+    };
+  const theme = saved.themes.find((t) => c.discovery.themes.includes(t));
+  const mood = saved.moods.find((m) => c.discovery.moods.includes(m));
+  const difficulty = saved.preferredDifficulty === c.discovery.difficulty;
+  const reasons = [
+    theme ? `your interest in ${labels[theme]}` : null,
+    mood ? `your ${labels[mood].toLowerCase()} mood preference` : null,
+    difficulty
+      ? `your ${labels[c.discovery.difficulty].toLowerCase()} difficulty preference`
+      : null,
+  ].filter(Boolean);
+  return {
+    rank: (theme ? 3 : 0) + (mood ? 2 : 0) + (difficulty ? 1 : 0),
+    reasonCode: theme
+      ? "THEME_MATCH"
+      : mood
+        ? "MOOD_MATCH"
+        : difficulty
+          ? "DIFFICULTY_MATCH"
+          : "AVAILABLE_CASE",
+    recommendationReason: reasons.length
+      ? `Matches ${reasons.join(" and ")}`
+      : "A mystery to try",
+  };
+}
 
 export async function recommendations(
   db: Sql,
@@ -38,7 +72,7 @@ export async function recommendations(
     (await catalogue(db)).filter((c) => c.access === "free"),
     parseFilters(filters),
   );
-  const saved = actor ? await interests(db, actor) : { themes: [], version: 0 };
+  const saved = actor ? await interests(db, actor) : emptyInterests();
   // Case keys span versions and modes. A group reveal exposes the solution too.
   // Briefing-only rooms do not expose evidence and must not hide fresh cases.
   const exposed = actor
@@ -60,29 +94,26 @@ export async function recommendations(
     : [];
   const ranked = eligible
     .map((c) => {
-      const theme = saved.themes.find((t) =>
-        c.discovery.themes.includes(t as (typeof c.discovery.themes)[number]),
-      );
       return {
         ...c,
-        rank: theme ? 3 : 0,
+        ...preferenceScore(c, saved),
         replay: exposed.includes(c.id),
-        reasonCode: theme ? "THEME_MATCH" : "AVAILABLE_CASE",
-        recommendationReason: theme
-          ? `Matches your interest in ${labels[theme] ?? theme}`
-          : "A mystery to try",
       };
     })
     .sort((a, b) => b.rank - a.rank || a.id.localeCompare(b.id));
   return {
-    label: saved.themes.length ? "For you" : "Featured mysteries",
-    algorithmVersion: "preview-theme-v2",
+    label:
+      saved.personalisationEnabled &&
+      (saved.themes.length || saved.moods.length || saved.preferredDifficulty)
+        ? "For you"
+        : "Featured mysteries",
+    algorithmVersion: "preview-preferences-v3",
     preferenceVersion: saved.version,
     cases: ranked.filter((c) => !c.replay).slice(0, Number(limit)),
     replays:
       includeCompleted === "true"
         ? ranked.filter((c) => c.replay).slice(0, Number(limit))
         : [],
-    completedCount: exposed.length,
+    exposedCount: exposed.length,
   };
 }

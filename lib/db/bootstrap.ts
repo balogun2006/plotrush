@@ -15,6 +15,7 @@ export async function migrate(db: Database) {
       "007_refunds.sql",
       "008_disputes.sql",
       "009_refund_recovery.sql",
+      "010_discovery_preferences.sql",
     ])
       await tx.query(await readFile("db/migrations/" + file, "utf8"));
   });
