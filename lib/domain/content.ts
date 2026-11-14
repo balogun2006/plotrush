@@ -108,4 +108,8 @@ export function card(c: Case) {
     maxPlayers: c.maxPlayers,
   };
 }
-export type CaseCard = ReturnType<typeof card>;
+export type CaseCard = ReturnType<typeof card> & {
+  caseUuid?: string;
+  firstPublishedAt?: string | null;
+  featuredRank?: number | null;
+};

@@ -17,6 +17,7 @@ import {
   codeInput,
   scheduleInput,
   unpublishInput,
+  featuredInput,
 } from "../lib/contracts/editorial";
 import { dailySchema, dailyStartInput } from "../lib/contracts/daily";
 import {
@@ -91,6 +92,25 @@ const draftId = [
   },
 ];
 const staffPaths = {
+  "/admin/releases/{key}/featured": {
+    parameters: [
+      {
+        name: "key",
+        in: "path",
+        required: true,
+        schema: {
+          type: "string",
+          maxLength: 80,
+          pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+        },
+      },
+    ],
+    post: {
+      ...staffPost(featuredInput, "content_publisher"),
+      description:
+        "Set or remove a logical case's organic featured position (1–100). Requires fresh MFA and expected discovery revision. Setting a pick requires an enabled reviewed release and the publication switch; removing a pick remains available with publishing disabled. Does not change canon or first-publication identity.",
+    },
+  },
   "/admin/finance/revenue.csv": {
     get: {
       security: staffSecurity,
@@ -283,7 +303,7 @@ const doc = {
     "/recommendations": {
       get: {
         description:
-          "Private preview-preferences-v3 recommendations. Defaults to free solo cases. Previously started solo cases and group evidence exposure are excluded across versions and modes; exposedCount counts these case keys. Opt-in replays are returned separately. Scores +3 for any theme match, +2 for any mood match and +1 for preferred difficulty. Opt-out ignores saved choices and labels Featured mysteries. Preview ties use stable case keys; editorial/publication ordering remains pending.",
+          "Private editorial-preferences-v4 recommendations. Defaults to free solo cases. Scores +3/+2/+1 for theme/mood/difficulty, then first publication descending and stable case UUID. No preferences or opt-out uses eligible publisher featured positions, then newest. Draft fixtures have no invented publication date. Filters and cross-mode/version exposure exclusion remain authoritative; exposedCount counts exposed keys and opt-in replays are separate.",
         parameters: [
           {
             name: "limit",

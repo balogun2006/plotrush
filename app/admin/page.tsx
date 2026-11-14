@@ -30,6 +30,9 @@ type Summary = {
     version_id: string;
     title: string;
     enabled: boolean;
+    first_published_at: string | null;
+    featured_rank: number | null;
+    discovery_revision: number;
   }[];
   calendar: { day: string; title: string; version_id: string }[];
   queueGaps: { day: string }[];
@@ -60,6 +63,7 @@ export default function Editorial() {
     [day, setDay] = useState(""),
     [versionId, setVersionId] = useState(""),
     [reason, setReason] = useState(""),
+    [featuredRanks, setFeaturedRanks] = useState<Record<string, string>>({}),
     [audit, setAudit] = useState<
       { id: string; action: string; entity_id: string; created_at: string }[]
     >([]);
@@ -80,6 +84,7 @@ export default function Editorial() {
       api<typeof audit>("admin/audit"),
     ]);
     setSummary(s);
+    setFeaturedRanks({});
     setTemplates(t);
     setAudit(a);
   }, []);
@@ -531,6 +536,12 @@ export default function Editorial() {
           </div>
           <section className="room-panel">
             <h2>Release shelf</h2>
+            <p>
+              Featured positions order the non-personalised recommendation rail,
+              followed by newest releases. Smaller numbers appear first; blank
+              removes a pick. Only eligible cases appear to players. Preference
+              matches keep their own ranking.
+            </p>
             {summary?.releases.length === 0 && (
               <p>
                 No editorial releases. The preview continues to use the supplied
@@ -553,6 +564,68 @@ export default function Editorial() {
                   <small>
                     {r.enabled ? "Released" : "Withdrawn"} · {r.case_key}
                   </small>
+                  <small>
+                    First publication:{" "}
+                    {r.first_published_at
+                      ? new Date(r.first_published_at)
+                          .toISOString()
+                          .slice(0, 10) + " UTC"
+                      : "Not recorded"}
+                  </small>
+                  {publisher && (
+                    <form
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        void work(async () => {
+                          const value =
+                            featuredRanks[r.case_key] ??
+                            String(r.featured_rank ?? "");
+                          await api(
+                            `admin/releases/${r.case_key}/featured`,
+                            "POST",
+                            {
+                              featuredRank: value === "" ? null : Number(value),
+                              expectedRevision: r.discovery_revision,
+                            },
+                          );
+                          await loadWorkspace();
+                          setNotice("Featured selection saved.");
+                        });
+                      }}
+                    >
+                      <label>
+                        Featured position for {r.title}
+                        <input
+                          type="number"
+                          min={1}
+                          max={100}
+                          step={1}
+                          value={
+                            featuredRanks[r.case_key] ??
+                            String(r.featured_rank ?? "")
+                          }
+                          disabled={busy}
+                          onChange={(event) =>
+                            setFeaturedRanks((values) => ({
+                              ...values,
+                              [r.case_key]: event.target.value,
+                            }))
+                          }
+                        />
+                      </label>
+                      <button
+                        className="text-button"
+                        disabled={
+                          busy ||
+                          ((!r.enabled || !access.publishEnabled) &&
+                            (featuredRanks[r.case_key] ??
+                              String(r.featured_rank ?? "")) !== "")
+                        }
+                      >
+                        Save featured position for {r.title}
+                      </button>
+                    </form>
+                  )}
                   {r.enabled && publisher && (
                     <button
                       className="text-button"
@@ -581,8 +654,8 @@ export default function Editorial() {
           <section className="room-panel">
             <h2>Daily editorial calendar</h2>
             <p>
-              Schedule approved free solo mini cases in UTC. Daily selection and
-              streak gameplay will be connected in a later increment.
+              Schedule approved free solo mini cases in UTC. The homepage uses
+              this calendar for daily play and streaks.
             </p>
             <p role="status">
               {summary?.queueGaps.length ?? 0} unscheduled or unavailable slots

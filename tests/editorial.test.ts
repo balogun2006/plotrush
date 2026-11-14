@@ -1,15 +1,22 @@
 import { beforeAll, afterAll, it, expect } from "vitest";
 import { randomUUID } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import { embedded } from "../lib/db/adapters";
 import { migrate, seedDrafts } from "../lib/db/bootstrap";
 import type { Database } from "../lib/db/types";
-import { createIdentity, hash } from "../lib/domain/identity";
+import { createIdentity, hash, saveInterests } from "../lib/domain/identity";
+import { recommendations } from "../lib/domain/recommendations";
+import {
+  comparePublication,
+  filterCases,
+  parseFilters,
+} from "../lib/domain/catalogue";
 import { enroll, unlock, requireStaff, StaffRole } from "../lib/domain/staff";
 import { totp, seal, unseal, matchingCounter } from "../lib/security/totp";
 import * as editorial from "../lib/domain/editorial";
 import { catalogue, start, read } from "../lib/domain/game";
 import { createRoom, roomAction } from "../lib/domain/rooms";
-import { caseSchema, Case } from "../lib/domain/content";
+import { caseSchema, Case, card } from "../lib/domain/content";
 import { editorialCase } from "../lib/contracts/editorial";
 let db: Database,
   source: Case,
@@ -292,6 +299,9 @@ it("publishes immutable versions, preserves existing solo games and withdraws ne
     player = await createIdentity(db);
   const d = await publish(c),
     old = await start(db, player.id, c.key);
+  const beforeDiscovery = (await catalogue(db)).find(
+    (item) => item.id === c.key,
+  )!;
   let revised = await editorial.transition(
     db,
     editor,
@@ -331,6 +341,19 @@ it("publishes immutable versions, preserves existing solo games and withdraws ne
     true,
   );
   expect((await read(db, player.id, old.id)).title).toBe(c.title);
+  const afterDiscovery = (await catalogue(db)).find(
+    (item) => item.id === c.key,
+  )!;
+  expect(afterDiscovery.firstPublishedAt).toBe(
+    beforeDiscovery.firstPublishedAt,
+  );
+  expect(afterDiscovery.caseUuid).toBe(beforeDiscovery.caseUuid);
+  await expect(
+    db.query(
+      "UPDATE app_private.case_discovery_order SET first_published_at=now() + interval '1 day' WHERE case_key=$1",
+      [c.key],
+    ),
+  ).rejects.toThrow();
   expect((await start(db, (await createIdentity(db)).id, c.key)).title).toBe(
     "Updated title",
   );
@@ -358,6 +381,243 @@ it("publishes immutable versions, preserves existing solo games and withdraws ne
     "Synthetic fixture fallback withdrawal.",
   );
   expect((await catalogue(db)).some((x) => x.id === source.key)).toBe(false);
+});
+it("keeps draft UUIDs stable on repeat migration and does not invent publication dates", async () => {
+  const before = (await catalogue(db)).find((c) => c.id === "wrong-parcel")!;
+  expect(before.firstPublishedAt).toBeNull();
+  expect(before.caseUuid).toMatch(/^[0-9a-f-]{36}$/);
+  await migrate(db);
+  const after = (await catalogue(db)).find((c) => c.id === before.id)!;
+  expect(after.caseUuid).toBe(before.caseUuid);
+  expect(after.featuredRank).toBeNull();
+  expect(after.firstPublishedAt).toBeNull();
+});
+it("backfills a legacy release from its earliest surviving publication evidence", async () => {
+  const legacy = await embedded();
+  try {
+    await migrate(legacy);
+    await seedDrafts(legacy);
+    await legacy.query(
+      "DROP TRIGGER register_discovery_case ON app_private.case_versions; DROP TRIGGER record_first_publication ON app_private.case_releases; DROP TABLE app_private.case_discovery_order",
+    );
+    const who = await createIdentity(legacy),
+      draftId = randomUUID();
+    await legacy.query(
+      "INSERT INTO app_private.accounts(principal_id,email) VALUES($1,$2)",
+      [who.id, "legacy@example.test"],
+    );
+    const v = (
+      await legacy.query<{ id: string; content: Case }>(
+        "SELECT id,content FROM app_private.case_versions WHERE case_key='last-slice' LIMIT 1",
+      )
+    ).rows[0];
+    await legacy.query(
+      "UPDATE app_private.case_versions SET status='published' WHERE id=$1",
+      [v.id],
+    );
+    await legacy.query(
+      "INSERT INTO app_private.editorial_drafts(id,case_key,content,author_id,editor_id) VALUES($1,'last-slice',$2,$3,$3)",
+      [draftId, JSON.stringify(v.content), who.id],
+    );
+    await legacy.query(
+      "INSERT INTO app_private.audit_events(id,actor_id,action,entity_id,created_at) VALUES($1,$2,'editorial.publish',$3,'2026-01-01T00:00:00Z')",
+      [randomUUID(), who.id, draftId],
+    );
+    await legacy.query(
+      "INSERT INTO app_private.case_releases(case_key,version_id,published_by,published_at) VALUES('last-slice',$1,$2,'2026-02-01T00:00:00Z')",
+      [v.id, who.id],
+    );
+    await legacy.query(
+      await readFile("db/migrations/011_editorial_discovery_order.sql", "utf8"),
+    );
+    const entry = (await catalogue(legacy)).find((c) => c.id === "last-slice")!;
+    expect(entry.firstPublishedAt).toBe("2026-01-01T00:00:00.000000Z");
+    expect(entry.featuredRank).toBeNull();
+    await migrate(legacy);
+    expect(
+      (await catalogue(legacy)).find((c) => c.id === entry.id)?.caseUuid,
+    ).toBe(entry.caseUuid);
+  } finally {
+    await legacy.close();
+  }
+});
+it("authorises featured picks, fences racing edits, audits once and permits removal with publishing off", async () => {
+  const c = content();
+  await publish(c);
+  await expect(
+    editorial.setFeatured(
+      db,
+      editor,
+      c.key,
+      { featuredRank: 1, expectedRevision: 1 },
+      true,
+    ),
+  ).rejects.toMatchObject({ code: "ROLE_DENIED" });
+  const finance = await staff("finance");
+  await expect(
+    editorial.setFeatured(
+      db,
+      finance,
+      c.key,
+      { featuredRank: 1, expectedRevision: 1 },
+      true,
+    ),
+  ).rejects.toMatchObject({ code: "ROLE_DENIED" });
+  await expect(
+    editorial.setFeatured(
+      db,
+      { ...publisher, staffToken: undefined },
+      c.key,
+      { featuredRank: 1, expectedRevision: 1 },
+      true,
+    ),
+  ).rejects.toMatchObject({ status: 403 });
+  await expect(
+    editorial.setFeatured(
+      db,
+      publisher,
+      "wrong-parcel",
+      { featuredRank: 1, expectedRevision: 1 },
+      true,
+    ),
+  ).rejects.toMatchObject({ status: 404 });
+  await expect(
+    editorial.setFeatured(
+      db,
+      publisher,
+      c.key,
+      { featuredRank: 0, expectedRevision: 1 },
+      true,
+    ),
+  ).rejects.toThrow();
+  await expect(
+    editorial.setFeatured(
+      db,
+      publisher,
+      c.key,
+      { featuredRank: 1, expectedRevision: 1 },
+      false,
+    ),
+  ).rejects.toMatchObject({ code: "PUBLISH_DISABLED" });
+  const races = await Promise.allSettled(
+    [1, 2].map((featuredRank) =>
+      editorial.setFeatured(
+        db,
+        publisher,
+        c.key,
+        { featuredRank, expectedRevision: 1 },
+        true,
+      ),
+    ),
+  );
+  expect(races.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+  expect(races.find((r) => r.status === "rejected")).toMatchObject({
+    reason: { code: "STALE_REVISION" },
+  });
+  const audit = await db.query(
+    "SELECT id FROM app_private.audit_events WHERE action='editorial.featured' AND entity_id=$1",
+    [c.key],
+  );
+  expect(audit.rows).toHaveLength(1);
+  await editorial.setFeatured(
+    db,
+    publisher,
+    c.key,
+    { featuredRank: null, expectedRevision: 2 },
+    false,
+  );
+  expect(
+    (await catalogue(db)).find((item) => item.id === c.key)?.featuredRank,
+  ).toBeNull();
+  await editorial.unpublish(
+    db,
+    publisher,
+    c.key,
+    "Synthetic featured withdrawal test.",
+  );
+  await expect(
+    editorial.setFeatured(
+      db,
+      publisher,
+      c.key,
+      { featuredRank: 1, expectedRevision: 3 },
+      true,
+    ),
+  ).rejects.toMatchObject({ code: "RELEASE_REQUIRED" });
+});
+it("uses featured ordering only for fallback, honours filters/exposure and excludes withdrawn picks", async () => {
+  const a = content(),
+    b = content();
+  for (const c of [a, b]) {
+    c.discovery.primaryTheme = "heist";
+    c.discovery.themes = ["heist"];
+  }
+  await publish(a);
+  await publish(b);
+  await editorial.setFeatured(
+    db,
+    publisher,
+    a.key,
+    { featuredRank: 1, expectedRevision: 1 },
+    true,
+  );
+  const params = new URLSearchParams("themes=heist");
+  expect(
+    (await recommendations(db, null, params)).cases.map((c) => c.id),
+  ).toEqual([a.key, b.key]);
+  const actor = (await createIdentity(db)).id;
+  await saveInterests(db, actor, ["heist"], 0);
+  expect(
+    (await recommendations(db, actor, params)).cases.map((c) => c.id),
+  ).toEqual([b.key, a.key]);
+  await start(db, actor, a.key);
+  await saveInterests(db, actor, ["heist"], 1, {
+    personalisationEnabled: false,
+  });
+  expect(
+    (await recommendations(db, actor, params)).cases.map((c) => c.id),
+  ).toEqual([b.key]);
+  expect(
+    (
+      await recommendations(
+        db,
+        null,
+        new URLSearchParams("themes=heist&mode=group"),
+      )
+    ).cases,
+  ).toEqual([]);
+  const ordered = filterCases(
+    (await catalogue(db)).filter((c) => [a.key, b.key].includes(c.id)),
+    parseFilters(new URLSearchParams("sort=newest")),
+  );
+  expect(ordered.map((c) => c.id)).toEqual([b.key, a.key]);
+  await editorial.unpublish(
+    db,
+    publisher,
+    a.key,
+    "Synthetic pick withdrawal check.",
+  );
+  expect(
+    (await recommendations(db, null, params)).cases.map((c) => c.id),
+  ).toEqual([b.key]);
+});
+it("breaks publication ties by stable UUID and preserves sub-millisecond ordering", () => {
+  const a = {
+    ...card(source),
+    id: "z",
+    caseUuid: "00000000-0000-0000-0000-000000000001",
+    firstPublishedAt: "2026-11-14T00:00:00.000001Z",
+  };
+  const b = {
+    ...card(source),
+    id: "a",
+    caseUuid: "00000000-0000-0000-0000-000000000002",
+    firstPublishedAt: "2026-11-14T00:00:00.000002Z",
+  };
+  expect(comparePublication(a, b)).toBeGreaterThan(0);
+  expect(
+    comparePublication(a, { ...b, firstPublishedAt: a.firstPublishedAt }),
+  ).toBeLessThan(0);
 });
 it("pins group lobbies to their release version when an editor publishes another version", async () => {
   const sourceGroup = caseSchema.parse(

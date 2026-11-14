@@ -1,7 +1,12 @@
 import type { Sql } from "../db/types";
 import { catalogue } from "./game";
 import { interests } from "./identity";
-import { filterCases, labels, parseFilters } from "./catalogue";
+import {
+  filterCases,
+  labels,
+  parseFilters,
+  comparePublication,
+} from "./catalogue";
 import { assert } from "./errors";
 import { emptyInterests, type Interests } from "../contracts/interests";
 import type { CaseCard } from "./content";
@@ -73,6 +78,10 @@ export async function recommendations(
     parseFilters(filters),
   );
   const saved = actor ? await interests(db, actor) : emptyInterests();
+  const personalised = !!(
+    saved.personalisationEnabled &&
+    (saved.themes.length || saved.moods.length || saved.preferredDifficulty)
+  );
   // Case keys span versions and modes. A group reveal exposes the solution too.
   // Briefing-only rooms do not expose evidence and must not hide fresh cases.
   const exposed = actor
@@ -100,14 +109,15 @@ export async function recommendations(
         replay: exposed.includes(c.id),
       };
     })
-    .sort((a, b) => b.rank - a.rank || a.id.localeCompare(b.id));
+    .sort((a, b) =>
+      personalised
+        ? b.rank - a.rank || comparePublication(a, b)
+        : (a.featuredRank ?? Infinity) - (b.featuredRank ?? Infinity) ||
+          comparePublication(a, b),
+    );
   return {
-    label:
-      saved.personalisationEnabled &&
-      (saved.themes.length || saved.moods.length || saved.preferredDifficulty)
-        ? "For you"
-        : "Featured mysteries",
-    algorithmVersion: "preview-preferences-v3",
+    label: personalised ? "For you" : "Featured mysteries",
+    algorithmVersion: "editorial-preferences-v4",
     preferenceVersion: saved.version,
     cases: ranked.filter((c) => !c.replay).slice(0, Number(limit)),
     replays:

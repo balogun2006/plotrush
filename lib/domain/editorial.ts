@@ -2,7 +2,11 @@ import { randomUUID, createHash } from "node:crypto";
 import type { Database, Sql } from "../db/types";
 import { assert } from "./errors";
 import { requireStaff, audit, StaffRole } from "./staff";
-import { editorialCase, reviewInput } from "../contracts/editorial";
+import {
+  editorialCase,
+  reviewInput,
+  featuredInput,
+} from "../contracts/editorial";
 import type { Case } from "./content";
 export type StaffContext = {
   actor: string;
@@ -56,7 +60,7 @@ export async function listEditorial(db: Database, ctx: StaffContext) {
     ).rows;
     const releases = (
       await tx.query(
-        "SELECT r.case_key,r.version_id,r.enabled,r.published_at,v.content->>'title' AS title FROM app_private.case_releases r JOIN app_private.case_versions v ON v.id=r.version_id ORDER BY r.case_key",
+        "SELECT r.case_key,r.version_id,r.enabled,r.published_at,d.first_published_at,d.featured_rank,d.revision AS discovery_revision,v.content->>'title' AS title FROM app_private.case_releases r JOIN app_private.case_versions v ON v.id=r.version_id JOIN app_private.case_discovery_order d ON d.case_key=r.case_key ORDER BY r.case_key",
       )
     ).rows;
     const calendar = (
@@ -363,5 +367,71 @@ export async function editorialAudit(db: Database, ctx: StaffContext) {
         "SELECT id,actor_id,action,entity_id,created_at FROM app_private.audit_events WHERE action LIKE 'editorial.%' ORDER BY created_at DESC,id LIMIT 100",
       )
     ).rows;
+  });
+}
+export async function setFeatured(
+  db: Database,
+  ctx: StaffContext,
+  key: string,
+  input: unknown,
+  publishEnabled: boolean,
+) {
+  const b = featuredInput.parse(input);
+  return db.transaction(async (tx) => {
+    await permission(tx, ctx, "content_publisher");
+    await tx.query("SELECT pg_advisory_xact_lock(hashtext($1))", [
+      "publication:" + key,
+    ]);
+    const r = (
+      await tx.query<{
+        enabled: boolean;
+        status: string;
+        revision: number;
+        featured_rank: number | null;
+      }>(
+        "SELECT r.enabled,v.status,d.revision,d.featured_rank FROM app_private.case_releases r JOIN app_private.case_versions v ON v.id=r.version_id JOIN app_private.case_discovery_order d ON d.case_key=r.case_key WHERE r.case_key=$1 FOR UPDATE OF r,d",
+        [key],
+      )
+    ).rows[0];
+    assert(r, 404, "NOT_FOUND", "Editorial release unavailable.");
+    assert(
+      r.revision === b.expectedRevision,
+      409,
+      "STALE_REVISION",
+      "Discovery choices changed. Reload before saving.",
+    );
+    if (b.featuredRank !== null) {
+      assert(
+        publishEnabled,
+        503,
+        "PUBLISH_DISABLED",
+        "Featured picks are disabled by the publication switch.",
+      );
+      assert(
+        r.enabled && r.status === "published",
+        422,
+        "RELEASE_REQUIRED",
+        "Feature a currently released, reviewed case.",
+      );
+    }
+    if (r.featured_rank === b.featuredRank)
+      return {
+        caseKey: key,
+        featuredRank: r.featured_rank,
+        revision: r.revision,
+      };
+    await tx.query(
+      "UPDATE app_private.case_discovery_order SET featured_rank=$2,revision=revision+1 WHERE case_key=$1",
+      [key, b.featuredRank],
+    );
+    await audit(tx, ctx.actor, "editorial.featured", key, {
+      featuredRank: b.featuredRank,
+      revision: r.revision + 1,
+    });
+    return {
+      caseKey: key,
+      featuredRank: b.featuredRank,
+      revision: r.revision + 1,
+    };
   });
 }

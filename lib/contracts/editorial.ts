@@ -72,3 +72,9 @@ export const scheduleInput = z
 export const unpublishInput = z
   .object({ reason: z.string().trim().min(10).max(1000) })
   .strict();
+export const featuredInput = z
+  .object({
+    featuredRank: z.number().int().min(1).max(100).nullable(),
+    expectedRevision: z.number().int().positive(),
+  })
+  .strict();

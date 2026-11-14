@@ -28,10 +28,20 @@ type Result = {
   answer: Case["answer"];
 };
 export async function catalogue(db: Sql) {
-  const r = await db.query<{ content: Case }>(
-    "SELECT DISTINCT ON(case_key) content FROM app_private.playable_versions ORDER BY case_key,created_at DESC,id",
+  const r = await db.query<{
+    content: Case;
+    case_uuid: string;
+    first_published_at: string | null;
+    featured_rank: number | null;
+  }>(
+    `SELECT DISTINCT ON(v.case_key) v.content,d.case_uuid,to_char(d.first_published_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS first_published_at,d.featured_rank FROM app_private.playable_versions v JOIN app_private.case_discovery_order d ON d.case_key=v.case_key ORDER BY v.case_key,v.created_at DESC,v.id`,
   );
-  return r.rows.map((x) => card(caseSchema.parse(x.content)));
+  return r.rows.map((x) => ({
+    ...card(caseSchema.parse(x.content)),
+    caseUuid: x.case_uuid,
+    firstPublishedAt: x.first_published_at,
+    featuredRank: x.featured_rank,
+  }));
 }
 export async function start(
   db: Database,
