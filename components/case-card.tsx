@@ -7,7 +7,7 @@ import {
   Music2,
 } from "lucide-react";
 import { CaseCard as Card } from "@/lib/domain/content";
-import { labels, duration, Filters } from "@/lib/domain/catalogue";
+import { labels, duration, modeFor, Filters } from "@/lib/domain/catalogue";
 import { StartButton } from "./start-button";
 const styles: Record<
   string,
@@ -41,6 +41,11 @@ const styles: Record<
 export function CaseCard({ item, filters }: { item: Card; filters?: Filters }) {
   const s = styles[item.id] ?? styles["last-slice"];
   const Icon = s.icon;
+  const mode = filters
+    ? modeFor(item, filters)
+    : item.modes.includes("solo")
+      ? "solo"
+      : "group";
   const minutes = filters
     ? duration(item, filters)
     : (item.discovery.estimatedDurationMinutes.solo ??
@@ -50,7 +55,7 @@ export function CaseCard({ item, filters }: { item: Card; filters?: Filters }) {
       <div className={"case-cover " + s.className}>
         <span className="file-number">CASE / {s.number}</span>
         <span className="free-badge">
-          {item.modes.includes("solo") ? "FREE SOLO" : "FREE GROUP"}
+          {`${item.access === "paid" ? "PREMIUM" : "FREE"} ${mode === "group" ? "GROUP" : "SOLO"}`}
         </span>
         <div className="cover-orbit" />
         <Icon className="cover-icon" size={95} strokeWidth={1.1} />
@@ -61,7 +66,8 @@ export function CaseCard({ item, filters }: { item: Card; filters?: Filters }) {
       </div>
       <div className="case-content">
         <div className="case-meta">
-          {labels[item.discovery.primaryTheme]}
+          {item.themeLabels?.[item.discovery.primaryTheme] ??
+            labels[item.discovery.primaryTheme]}
           <span>·</span>
           {labels[item.discovery.difficulty]}
         </div>
@@ -72,10 +78,13 @@ export function CaseCard({ item, filters }: { item: Card; filters?: Filters }) {
             <Clock3 size={15} />
             {minutes} min
           </span>
-          {item.modes.includes("solo") ? (
+          {mode !== "group" ? (
             <StartButton caseId={item.id} label="Play case" />
           ) : (
-            <Link href="/rooms" className="button lime">
+            <Link
+              href={"/rooms?case=" + encodeURIComponent(item.id)}
+              className="button lime"
+            >
               Play together
             </Link>
           )}

@@ -6,10 +6,10 @@ import {
   Search,
   Users,
   Check,
-  Layers3,
 } from "lucide-react";
 import { StartButton } from "@/components/start-button";
 import { DailyCase } from "@/components/daily-case";
+import { HomeThemes } from "@/components/theme-directory";
 import { Recommendations } from "@/components/recommendations";
 export default function Home() {
   return (
@@ -100,47 +100,11 @@ export default function Home() {
             <span className="eyebrow">PICK YOUR PLOT</span>
             <h2>What are you in the mood for?</h2>
           </div>
-          <Link className="text-link" href="/explore">
-            Browse all cases <ArrowRight size={17} />
+          <Link className="text-link" href="/themes?mode=solo&access=free">
+            Browse all themes <ArrowRight size={17} />
           </Link>
         </div>
-        <div className="theme-grid">
-          <Link
-            href="/explore?themes=everyday-mystery&mode=solo"
-            className="theme-card everyday"
-          >
-            <div className="theme-icon">
-              <Search size={43} strokeWidth={1.3} />
-            </div>
-            <div>
-              <span className="eyebrow">3 FREE SOLO CASES</span>
-              <h3>Everyday Mystery</h3>
-              <p>Ordinary places. Unexpected questions.</p>
-            </div>
-            <ArrowUpRight />
-          </Link>
-          <div className="theme-card wedding">
-            <div className="theme-icon">
-              <Layers3 size={43} strokeWidth={1.3} />
-            </div>
-            <div>
-              <span className="eyebrow">IN DEVELOPMENT</span>
-              <h3>Wedding & Family</h3>
-              <p>A celebration with a twist. Coming later.</p>
-            </div>
-            <span className="small-pill">Coming soon</span>
-          </div>
-          <div className="theme-card future">
-            <div className="future-icons">
-              ✦ <span>?</span> ✦
-            </div>
-            <div>
-              <span className="eyebrow">THE PLOT THICKENS</span>
-              <h3>More worlds to uncover</h3>
-              <p>Thriller, Cold Case and more are on the way.</p>
-            </div>
-          </div>
-        </div>
+        <HomeThemes />
       </section>
       <DailyCase />
       <Recommendations />

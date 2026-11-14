@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { FinanceDesk } from "../../components/finance-desk";
+import { ThemeDesk } from "../../components/theme-desk";
 import { api, ApiError } from "../../components/api";
 type Access = {
   roles: string[];
@@ -534,6 +535,10 @@ export default function Editorial() {
               )}
             </section>
           </div>
+          <ThemeDesk
+            publisher={!!publisher}
+            publishEnabled={access.publishEnabled}
+          />
           <section className="room-panel">
             <h2>Release shelf</h2>
             <p>

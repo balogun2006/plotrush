@@ -81,6 +81,19 @@ export function duration(c: CaseCard, f: Filters) {
       .map((m) => c.discovery.estimatedDurationMinutes[m]!),
   );
 }
+export function modeFor(c: CaseCard, f: Filters) {
+  return c.modes
+    .filter(
+      (m) =>
+        (f.mode === "any" || m === f.mode) &&
+        inBucket(c.discovery.estimatedDurationMinutes[m]!, f.duration),
+    )
+    .sort(
+      (a, b) =>
+        c.discovery.estimatedDurationMinutes[a]! -
+          c.discovery.estimatedDurationMinutes[b]! || (a === "solo" ? -1 : 1),
+    )[0];
+}
 export function filterCases(cases: CaseCard[], f: Filters) {
   return cases
     .filter(

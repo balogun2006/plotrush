@@ -7,15 +7,21 @@ import { api } from "./api";
 import { CaseCard as Card } from "@/lib/domain/content";
 import { labels, Filters } from "@/lib/domain/catalogue";
 import { CaseCard } from "./case-card";
+import type { Theme } from "@/lib/contracts/themes";
 type Data = {
   cases: Card[];
   filters: Filters;
   facets: Record<string, Record<string, number>>;
+  themes: (Theme & { count: number })[];
 };
-export function Explorer() {
+export function Explorer({ theme }: { theme?: Theme }) {
   const params = useSearchParams(),
     router = useRouter(),
-    query = params.toString();
+    rawQuery = params.toString();
+  const requestParams = new URLSearchParams(rawQuery);
+  if (theme) requestParams.set("themes", theme.slug);
+  const query = requestParams.toString();
+  const basePath = theme ? "/themes/" + theme.slug : "/explore";
   const [response, setResponse] = useState<{
       query: string;
       data: Data | null;
@@ -41,7 +47,10 @@ export function Explorer() {
     const p = new URLSearchParams(query);
     if (!value || value === "any") p.delete(key);
     else p.set(key, value);
-    router.push("/explore?" + p.toString(), { scroll: false });
+    if (theme && key !== "themes") {
+      p.delete("themes");
+      router.push(basePath + "?" + p.toString(), { scroll: false });
+    } else router.push("/explore?" + p.toString(), { scroll: false });
   }
   return (
     <div className="page-wrap">
@@ -51,9 +60,25 @@ export function Explorer() {
       <div className="page-heading">
         <span className="eyebrow">FOLLOW YOUR CURIOSITY</span>
         <h1>
-          Find your next <em>mystery.</em>
+          {theme ? (
+            theme.label
+          ) : (
+            <>
+              Find your next <em>mystery.</em>
+            </>
+          )}
         </h1>
-        <p>One case. A handful of clues. Your call.</p>
+        <p>
+          {theme
+            ? theme.description
+            : "One case. A handful of clues. Your call."}
+        </p>
+        <Link
+          className="text-link"
+          href={"/themes?mode=" + (params.get("mode") ?? "any")}
+        >
+          Browse themes
+        </Link>
       </div>
       <div className="explore-layout">
         <aside className={"filters " + (expanded ? "expanded" : "")}>
@@ -77,6 +102,7 @@ export function Explorer() {
             <label>
               Play mode
               <select
+                aria-label="Play mode"
                 value={params.get("mode") ?? "any"}
                 onChange={(e) => select("mode", e.target.value)}
               >
@@ -88,22 +114,25 @@ export function Explorer() {
             <label>
               Theme
               <select
-                value={params.get("themes") ?? ""}
+                value={theme?.slug ?? params.get("themes") ?? ""}
+                aria-label="Theme"
                 onChange={(e) => select("themes", e.target.value)}
               >
                 <option value="">All themes</option>
-                {[
-                  "everyday-mystery",
-                  "wedding-family",
-                  "thriller",
-                  "cold-case",
-                  "heist",
-                  "supernatural",
-                ].map((t) => (
-                  <option value={t} key={t}>
-                    {labels[t]}
-                  </option>
-                ))}
+                {data?.themes
+                  .filter(
+                    (t) =>
+                      t.status === "enabled" &&
+                      (t.count > 0 ||
+                        (theme?.slug ?? params.get("themes") ?? "")
+                          .split(",")
+                          .includes(t.slug)),
+                  )
+                  .map((t) => (
+                    <option value={t.slug} key={t.id} disabled={t.count === 0}>
+                      {t.label} ({t.count})
+                    </option>
+                  ))}
                 {params.get("themes")?.includes(",") && (
                   <option value={params.get("themes")!}>
                     {params
@@ -183,7 +212,7 @@ export function Explorer() {
                 value={params.get("sort") ?? "newest"}
                 onChange={(e) => select("sort", e.target.value)}
               >
-                <option value="newest">Featured drafts</option>
+                <option value="newest">Newest releases</option>
                 <option value="duration_asc">Shortest first</option>
                 <option value="difficulty_asc">Easiest first</option>
               </select>
@@ -231,8 +260,8 @@ export function Explorer() {
             <div className="empty-state">
               <h3>No cases match these filters yet.</h3>
               <p>
-                The preview has three free solo drafts. More themes and
-                multiplayer are still in development.
+                No cases are available in this view. Clear filters or choose
+                another available theme; filters are never silently relaxed.
               </p>
               <Link
                 className="button dark"

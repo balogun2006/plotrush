@@ -8,6 +8,7 @@ import {
   featuredInput,
 } from "../contracts/editorial";
 import type { Case } from "./content";
+import { activeThemes } from "./themes";
 export type StaffContext = {
   actor: string;
   playerToken: string;
@@ -248,6 +249,7 @@ export async function transition(
         checksum = createHash("sha256").update(json).digest("hex"),
         versionId = c.key + ":" + checksum;
       await tx.query("SELECT pg_advisory_xact_lock(442712)");
+      await activeThemes(tx, c.discovery.themes, true);
       const slug = await tx.query(
         "SELECT 1 FROM app_private.case_releases r JOIN app_private.case_versions v ON v.id=r.version_id WHERE r.case_key<>$1 AND v.content->>'slug'=$2",
         [c.key, c.slug],
