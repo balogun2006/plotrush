@@ -5,8 +5,16 @@ import Link from "next/link";
 import { api, ApiError } from "./api";
 import type { RoomSnapshot } from "../lib/domain/rooms";
 type SavedRoom = { id: string; title: string; phase: string };
-export function GroupRoom({ caseId = "missing-mic" }: { caseId?: string }) {
-  const premiumHost = caseId !== "missing-mic";
+export function GroupRoom({
+  caseId = "missing-mic",
+  caseAccess,
+}: {
+  caseId?: string;
+  caseAccess?: "free" | "paid";
+}) {
+  const premiumHost =
+    caseAccess === "paid" ||
+    (caseAccess === undefined && caseId !== "missing-mic");
   const [room, setRoom] = useState<RoomSnapshot | null>(null),
     [name, setName] = useState(""),
     [code, setCode] = useState(""),
@@ -194,7 +202,9 @@ export function GroupRoom({ caseId = "missing-mic" }: { caseId?: string }) {
               ? "Compare your evidence. Trust the details."
               : premiumHost
                 ? "Host your purchased case for 4–6 players. Guests join with an invite."
-                : "Gather 2–6 curious minds for The Missing Microphone. Free, no account needed."}
+                : caseId === "missing-mic"
+                  ? "Gather 2–6 curious minds for The Missing Microphone. Free, no account needed."
+                  : "Host this free group tutorial. Guests join with an invite, without an account or payment."}
           </p>
         </div>
         <Users size={36} />

@@ -28,6 +28,11 @@ import {
 import { readFile, writeFile } from "node:fs/promises";
 import { z } from "zod";
 import {
+  themeEditInput,
+  themeSchema,
+  themeAvailability,
+} from "../lib/contracts/themes";
+import {
   requestCodeInput,
   verifyCodeInput,
   orderInput,
@@ -92,6 +97,33 @@ const draftId = [
   },
 ];
 const staffPaths = {
+  "/admin/themes": {
+    get: {
+      security: staffSecurity,
+      "x-staff-role": "editorial",
+      responses: {
+        "200": response(
+          z.array(
+            themeSchema.extend({
+              reviewedCount: z.number().int(),
+              ready: z.boolean(),
+            }),
+          ),
+        ),
+        "403": { description: "Editorial role and fresh MFA required" },
+      },
+    },
+  },
+  "/admin/themes/{slug}": {
+    parameters: [
+      { name: "slug", in: "path", required: true, schema: { type: "string" } },
+    ],
+    put: {
+      ...staffPost(themeEditInput, "content_publisher"),
+      description:
+        "Update an existing stable theme. Requires publication switch, fresh MFA and expected revision. Retirement is denied while playable versions reference the theme. Promotion requires three reviewed eligible cases including free solo. Slugs/IDs cannot change; creation and art upload are not provided.",
+    },
+  },
   "/admin/releases/{key}/featured": {
     parameters: [
       {
@@ -276,6 +308,51 @@ const doc = {
   },
   paths: {
     ...staffPaths,
+    "/themes": {
+      get: {
+        description:
+          "Theme registry with distinct current preview counts under strict catalogue filters. Existing seeds have stable UUIDs but preference/filter inputs continue to use slugs. Retired entries have zero count. Reviewed supply excludes public draft fixtures. Counts/cases use one repeatable-read snapshot; no private player overlay.",
+        parameters: [
+          "mode",
+          "access",
+          "themes",
+          "moods",
+          "difficulty",
+          "duration",
+          "sort",
+        ].map((name) => ({ name, in: "query", schema: { type: "string" } })),
+        responses: {
+          "200": response(
+            z.object({ themes: z.array(themeAvailability) }).passthrough(),
+          ),
+          "400": { description: "Invalid filters" },
+          "409": { description: "Selected theme retired" },
+        },
+      },
+    },
+    "/themes/{slug}": {
+      parameters: [
+        {
+          name: "slug",
+          in: "path",
+          required: true,
+          schema: { type: "string" },
+        },
+      ],
+      get: {
+        description:
+          "Safe theme, eligible cards and explicitly labelled alternatives under the requested mode/access filters. Conflicting query theme is invalid. Retired API responses are 410 with safe alternative metadata; unknown slugs are 404.",
+        responses: {
+          "200": response(),
+          "400": { description: "Invalid/conflicting filters" },
+          "404": { description: "Unknown theme" },
+          "410": {
+            description:
+              "Retired theme, with error.details.theme and alternatives",
+          },
+        },
+      },
+    },
     "/interests": {
       description:
         "Private preview interests use validated stable taxonomy slugs, not UUIDs. Legacy theme-only PUT requests preserve omitted mood/difficulty/opt-out fields. DELETE removes selections and disables personalisation; only a version tombstone remains for stale-write protection. Guest GET returns defaults without creating an identity. PUT can create a guest identity; DELETE requires an existing session.",

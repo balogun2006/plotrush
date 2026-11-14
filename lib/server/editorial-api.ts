@@ -18,6 +18,8 @@ import {
 import { paystackConfig, PaystackClient } from "../providers/paystack";
 import { exportFinanceRevenue } from "../domain/finance-revenue";
 import * as editorial from "../domain/editorial";
+import { listThemeEditorial, editTheme } from "../domain/theme-editorial";
+import { themeEditInput } from "../contracts/themes";
 import {
   draftInput,
   saveDraftInput,
@@ -219,6 +221,24 @@ export async function handleEditorial(req: NextRequest, path: string[]) {
           await closeRefundRequest(db, ctx, orderId, requestId, reason),
         );
       }
+    }
+    if (route === "themes" && req.method === "GET")
+      return reply(await listThemeEditorial(db, ctx));
+    if (path[0] === "themes" && path.length === 2 && req.method === "PUT") {
+      const slug = z
+        .string()
+        .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+        .max(80)
+        .parse(path[1]);
+      return reply(
+        await editTheme(
+          db,
+          ctx,
+          slug,
+          themeEditInput.parse(await jsonBody(req)),
+          process.env.FEATURE_EDITORIAL_PUBLISH === "true",
+        ),
+      );
     }
     if (route === "cases" && req.method === "GET")
       return reply(await editorial.listEditorial(db, ctx));

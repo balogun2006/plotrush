@@ -302,6 +302,49 @@ test("independent staff draft, review, publish and withdraw a version without ex
     });
     expect(again.status()).toBe(404);
     await publisher
+      .getByLabel("Status for supernatural", { exact: true })
+      .selectOption("retired");
+    await publisher
+      .getByLabel("Change reason for supernatural", { exact: true })
+      .fill("Synthetic taxonomy retirement check; no content changed.");
+    await publisher
+      .getByRole("button", { name: "Save theme supernatural", exact: true })
+      .click();
+    await expect(
+      publisher.getByText("Theme changes saved.", { exact: true }),
+    ).toBeVisible();
+    const retired = await page.request.get(
+      "/api/v1/themes/supernatural?mode=group&access=free",
+    );
+    expect(retired.status()).toBe(410);
+    expect(
+      (await retired.json()).error.details.alternatives.map(
+        (t: { slug: string }) => t.slug,
+      ),
+    ).toContain("wedding-family");
+    expect(
+      (await page.request.get("/api/v1/cases?themes=supernatural")).status(),
+    ).toBe(409);
+    await page.goto("/themes/supernatural?mode=group&access=free");
+    await expect(
+      page.getByRole("heading", {
+        name: "Supernatural is unavailable",
+        exact: true,
+      }),
+    ).toBeVisible();
+    await publisher
+      .getByLabel("Status for supernatural", { exact: true })
+      .selectOption("enabled");
+    await publisher
+      .getByLabel("Change reason for supernatural", { exact: true })
+      .fill("Restore synthetic taxonomy seed after the test.");
+    await publisher
+      .getByRole("button", { name: "Save theme supernatural", exact: true })
+      .click();
+    await expect(
+      publisher.getByText("Theme changes saved.", { exact: true }),
+    ).toBeVisible();
+    await publisher
       .getByRole("button", { name: "Lock workspace", exact: true })
       .click();
     await expect(

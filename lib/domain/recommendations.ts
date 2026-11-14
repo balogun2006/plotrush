@@ -1,5 +1,5 @@
 import type { Sql } from "../db/types";
-import { catalogue } from "./game";
+import { publicCases } from "./discovery";
 import { interests } from "./identity";
 import {
   filterCases,
@@ -10,6 +10,7 @@ import {
 import { assert } from "./errors";
 import { emptyInterests, type Interests } from "../contracts/interests";
 import type { CaseCard } from "./content";
+import { activeThemes } from "./themes";
 
 export function preferenceScore(c: CaseCard, saved: Interests) {
   if (!saved.personalisationEnabled)
@@ -22,7 +23,9 @@ export function preferenceScore(c: CaseCard, saved: Interests) {
   const mood = saved.moods.find((m) => c.discovery.moods.includes(m));
   const difficulty = saved.preferredDifficulty === c.discovery.difficulty;
   const reasons = [
-    theme ? `your interest in ${labels[theme]}` : null,
+    theme
+      ? `your interest in ${c.themeLabels?.[theme] ?? labels[theme]}`
+      : null,
     mood ? `your ${labels[mood].toLowerCase()} mood preference` : null,
     difficulty
       ? `your ${labels[c.discovery.difficulty].toLowerCase()} difficulty preference`
@@ -73,10 +76,9 @@ export async function recommendations(
   filters.delete("includeCompleted");
   if (!filters.has("mode")) filters.set("mode", "solo");
   if (!filters.has("access")) filters.set("access", "free");
-  const eligible = filterCases(
-    (await catalogue(db)).filter((c) => c.access === "free"),
-    parseFilters(filters),
-  );
+  const parsedFilters = parseFilters(filters);
+  await activeThemes(db, parsedFilters.themes);
+  const eligible = filterCases(await publicCases(db), parsedFilters);
   const saved = actor ? await interests(db, actor) : emptyInterests();
   const personalised = !!(
     saved.personalisationEnabled &&

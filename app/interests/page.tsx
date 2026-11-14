@@ -5,20 +5,28 @@ import { Check, ArrowRight } from "lucide-react";
 import { api } from "@/components/api";
 import { themes, moods, difficulties } from "@/lib/domain/content";
 import type { Interests } from "@/lib/contracts/interests";
+import type { Theme } from "@/lib/contracts/themes";
 import { labels } from "@/lib/domain/catalogue";
 export default function Interests() {
   const [selected, setSelected] = useState<string[]>([]),
     [selectedMoods, setSelectedMoods] = useState<string[]>([]),
     [difficulty, setDifficulty] = useState<string>(""),
     [enabled, setEnabled] = useState(true),
+    [themeLabels, setThemeLabels] = useState<Record<string, Theme>>({}),
     [version, setVersion] = useState(0),
     [ready, setReady] = useState(false),
     [busy, setBusy] = useState(false),
     [notice, setNotice] = useState(""),
     [error, setError] = useState("");
   useEffect(() => {
-    api<Interests>("interests")
-      .then((r) => {
+    Promise.all([
+      api<Interests>("interests"),
+      api<{ themes: Theme[] }>("themes"),
+    ])
+      .then(([r, taxonomy]) => {
+        setThemeLabels(
+          Object.fromEntries(taxonomy.themes.map((t) => [t.slug, t])),
+        );
         setSelected(r.themes);
         setSelectedMoods(r.moods);
         setDifficulty(r.preferredDifficulty ?? "");
@@ -88,9 +96,13 @@ export default function Interests() {
           <button
             className={"interest " + (selected.includes(t) ? "selected" : "")}
             key={t}
-            aria-label={labels[t]}
+            aria-label={themeLabels[t]?.label ?? labels[t]}
             aria-pressed={selected.includes(t)}
-            disabled={!ready || busy}
+            disabled={
+              !ready ||
+              busy ||
+              (themeLabels[t]?.status === "retired" && !selected.includes(t))
+            }
             onClick={() => {
               setNotice("");
               setSelected((xs) =>
@@ -98,7 +110,8 @@ export default function Interests() {
               );
             }}
           >
-            {labels[t]}
+            {themeLabels[t]?.label ?? labels[t]}
+            {themeLabels[t]?.status === "retired" && " (Unavailable)"}
             {selected.includes(t) ? <Check size={18} /> : <span>+</span>}
           </button>
         ))}

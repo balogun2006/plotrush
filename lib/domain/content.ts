@@ -109,6 +109,7 @@ export function card(c: Case) {
   };
 }
 export type CaseCard = ReturnType<typeof card> & {
+  themeLabels?: Record<string, string>;
   caseUuid?: string;
   firstPublishedAt?: string | null;
   featuredRank?: number | null;

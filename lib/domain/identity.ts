@@ -1,6 +1,7 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { Database, Sql } from "../db/types";
 import { assert } from "./errors";
+import { activeThemes } from "./themes";
 import {
   emptyInterests,
   interestInput,
@@ -73,6 +74,11 @@ export async function saveInterests(
       [actor],
     );
     const current = await interests(tx, actor);
+    await activeThemes(
+      tx,
+      input.themes.filter((t) => !current.themes.includes(t)),
+      true,
+    );
     assert(
       current.version === expectedVersion,
       409,

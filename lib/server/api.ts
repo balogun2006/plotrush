@@ -23,8 +23,8 @@ import {
 } from "../contracts/interests";
 import { dailyOverview } from "../domain/daily";
 import { dailyStartInput } from "../contracts/daily";
-import { filterCases, parseFilters, facets } from "../domain/catalogue";
-import { themes } from "../domain/content";
+import { parseFilters } from "../domain/catalogue";
+import { discoverySnapshot, themePage } from "../domain/discovery";
 import {
   createRoom,
   joinRoom,
@@ -194,32 +194,38 @@ export async function handle(req: NextRequest, path: string[]) {
     if (req.method === "GET" && route === "daily")
       return json(await dailyOverview(db, actor));
     if (req.method === "GET" && route === "cases") {
-      const f = parseFilters(req.nextUrl.searchParams);
-      const all = (await catalogue(db)).filter(
-        (c) =>
-          c.access === "free" &&
-          (c.modes.includes("solo") || c.kind === "tutorial"),
-      );
-      return json({
-        cases: filterCases(all, f),
-        facets: facets(all, f),
-        filters: f,
-        preview: true,
-      });
+      return json(await discoverySnapshot(db, req.nextUrl.searchParams));
     }
     if (req.method === "GET" && route === "taxonomy") {
-      const all = (await catalogue(db)).filter(
-        (c) =>
-          c.access === "free" &&
-          (c.modes.includes("solo") || c.kind === "tutorial"),
-      );
+      const snapshot = await discoverySnapshot(db, req.nextUrl.searchParams);
       return json({
-        themes: themes.map((id) => ({
-          id,
-          count: all.filter((c) => c.discovery.themes.includes(id)).length,
+        ...snapshot,
+        themes: snapshot.themes.map((t) => ({
+          ...t,
+          themeUuid: t.id,
+          id: t.slug,
         })),
-        preview: true,
       });
+    }
+    if (req.method === "GET" && route === "themes")
+      return json(await discoverySnapshot(db, req.nextUrl.searchParams));
+    if (req.method === "GET" && path[0] === "themes" && path.length === 2) {
+      const f = parseFilters(req.nextUrl.searchParams);
+      assert(
+        !f.themes.length || (f.themes.length === 1 && f.themes[0] === path[1]),
+        400,
+        "FILTER_INVALID",
+        "The theme filter must match the theme page.",
+      );
+      const page = await themePage(db, path[1], f);
+      if (page.theme.status === "retired")
+        throw new AppError(
+          410,
+          "THEME_RETIRED",
+          "This theme is unavailable. Choose an available theme instead.",
+          { theme: page.theme, alternatives: page.alternatives },
+        );
+      return json(page);
     }
     if (req.method === "GET" && route === "daily") {
       const all = (await catalogue(db)).filter(
@@ -634,6 +640,7 @@ export async function handle(req: NextRequest, path: string[]) {
               : "PlotRush is temporarily unavailable. Please try again.",
           retryable: status === 503 || status === 429,
           requestId,
+          ...(known && e.details !== undefined ? { details: e.details } : {}),
         },
       },
       {

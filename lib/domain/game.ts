@@ -5,6 +5,7 @@ import { assert } from "./errors";
 import { playableVersion, requirePremium, type PremiumPolicy } from "./premium";
 import { lockPrincipal } from "./identity";
 import { dailyClock, scheduledCase } from "./daily";
+import { themeRegistry } from "./themes";
 type Attempt = {
   id: string;
   principal_id: string;
@@ -28,6 +29,9 @@ type Result = {
   answer: Case["answer"];
 };
 export async function catalogue(db: Sql) {
+  const themeLabels = Object.fromEntries(
+    (await themeRegistry(db)).map((t) => [t.slug, t.label]),
+  );
   const r = await db.query<{
     content: Case;
     case_uuid: string;
@@ -41,6 +45,9 @@ export async function catalogue(db: Sql) {
     caseUuid: x.case_uuid,
     firstPublishedAt: x.first_published_at,
     featuredRank: x.featured_rank,
+    themeLabels: Object.fromEntries(
+      x.content.discovery.themes.map((t) => [t, themeLabels[t] ?? t]),
+    ),
   }));
 }
 export async function start(
