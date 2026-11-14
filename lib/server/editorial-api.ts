@@ -26,6 +26,7 @@ import {
   codeInput,
   scheduleInput,
   unpublishInput,
+  featuredInput,
 } from "../contracts/editorial";
 async function jsonBody(req: NextRequest) {
   assert(
@@ -279,6 +280,29 @@ export async function handleEditorial(req: NextRequest, path: string[]) {
     ) {
       const b = unpublishInput.parse(await jsonBody(req));
       return reply(await editorial.unpublish(db, ctx, path[1], b.reason));
+    }
+    if (
+      path[0] === "releases" &&
+      path[1] &&
+      path[2] === "featured" &&
+      path.length === 3 &&
+      req.method === "POST"
+    ) {
+      const key = z
+        .string()
+        .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+        .max(80)
+        .parse(path[1]);
+      const b = featuredInput.parse(await jsonBody(req));
+      return reply(
+        await editorial.setFeatured(
+          db,
+          ctx,
+          key,
+          b,
+          process.env.FEATURE_EDITORIAL_PUBLISH === "true",
+        ),
+      );
     }
     if (route === "calendar" && req.method === "POST") {
       const b = scheduleInput.parse(await jsonBody(req));

@@ -66,11 +66,9 @@ test("finance staff can download a private sandbox CSV after MFA", async ({
     "/api/v1/admin/finance/revenue.csv?from=2025-02-01&to=2025-02-01";
   const denied = await page.request.get(endpoint);
   expect(denied.status()).toBe(401);
-  await page
-    .context()
-    .setExtraHTTPHeaders({
-      "X-Forwarded-For": `finance-report-${info.project.name}`,
-    });
+  await page.context().setExtraHTTPHeaders({
+    "X-Forwarded-For": `finance-report-${info.project.name}`,
+  });
   await signIn(
     page,
     `studio-finance-${info.project.name}@example.test`,
@@ -221,6 +219,24 @@ test("independent staff draft, review, publish and withdraw a version without ex
     const version = releases.find(
       (r: { case_key: string }) => r.case_key === content.key,
     ).version_id;
+    await publisher
+      .getByLabel(`Featured position for ${content.title}`, { exact: true })
+      .fill("1");
+    await publisher
+      .getByRole("button", {
+        name: `Save featured position for ${content.title}`,
+        exact: true,
+      })
+      .click();
+    await expect(
+      publisher.getByText("Featured selection saved.", { exact: true }),
+    ).toBeVisible();
+    const picks = await (
+      await page.request.get("/api/v1/recommendations")
+    ).json();
+    expect(picks.data.cases[0].id).toBe(content.key);
+    expect(picks.data.cases[0].firstPublishedAt).toBeTruthy();
+    expect(picks.data.cases[0].caseUuid).toMatch(/^[0-9a-f-]{36}$/);
     await publisher
       .getByLabel("Release date")
       .fill(new Date().toISOString().slice(0, 10));

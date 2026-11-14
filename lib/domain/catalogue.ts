@@ -107,9 +107,26 @@ export function filterCases(cases: CaseCard[], f: Filters) {
             ? difficulties.indexOf(a.discovery.difficulty) -
               difficulties.indexOf(b.discovery.difficulty)
             : 0;
-      // Drafts have no publication timestamps. Stable IDs order the preview; production uses first_published_at.
-      return delta || a.id.localeCompare(b.id);
+      return (
+        delta ||
+        (f.sort === "newest" ? comparePublication(a, b) : compareCaseUuid(a, b))
+      );
     });
+}
+export const compareCaseUuid = (a: CaseCard, b: CaseCard) =>
+  (a.caseUuid ?? a.id).localeCompare(b.caseUuid ?? b.id);
+export function comparePublication(a: CaseCard, b: CaseCard) {
+  // Public timestamps use UTC and six fractional digits, retaining PostgreSQL
+  // microseconds rather than rounding distinct releases into a Date millisecond.
+  const stamp = (value?: string | null) =>
+    (value ?? "").replace(
+      /\.(\d{1,6})Z$/,
+      (_match, fraction: string) => "." + fraction.padEnd(6, "0") + "Z",
+    );
+  return (
+    stamp(b.firstPublishedAt).localeCompare(stamp(a.firstPublishedAt)) ||
+    compareCaseUuid(a, b)
+  );
 }
 export function facets(cases: CaseCard[], f: Filters) {
   return Object.fromEntries(
