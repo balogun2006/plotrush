@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { AccountPrivacy } from "@/components/account-privacy";
 import { ShieldCheck, Mail, ArrowRight, Bookmark } from "lucide-react";
 import { api, ApiError } from "../../components/api";
 type Account = { kind: "guest" | "verified"; email?: string };
@@ -100,23 +101,36 @@ export default function AccountPage() {
       {!me || !config ? (
         <p role="status">Opening your account…</p>
       ) : me.kind === "verified" ? (
-        <section className="room-panel">
-          <ShieldCheck size={32} />
-          <h2>Email verified</h2>
-          <p>{me.email}</p>
-          <p>
-            Your cases, notes and private interests stay with this account.
-            Group seats remain tied to your authenticated identity.
-          </p>
-          <div className="room-actions">
-            <Link className="button lime" href="/library">
-              My cases <Bookmark size={16} />
-            </Link>
-            <button className="button outline" disabled={busy} onClick={logout}>
-              Sign out
-            </button>
-          </div>
-        </section>
+        <>
+          <section className="room-panel">
+            <ShieldCheck size={32} />
+            <h2>Email verified</h2>
+            <p>{me.email}</p>
+            <p>
+              Your cases, notes and private interests stay with this account.
+              Group seats remain tied to your authenticated identity.
+            </p>
+            <div className="room-actions">
+              <Link className="button lime" href="/library">
+                My cases <Bookmark size={16} />
+              </Link>
+              <button
+                className="button outline"
+                disabled={busy}
+                onClick={logout}
+              >
+                Sign out
+              </button>
+            </div>
+          </section>
+          <AccountPrivacy
+            reauthenticate={() => {
+              setEmail(me.email ?? "");
+              setMe({ kind: "guest" });
+              setChallenge("");
+            }}
+          />
+        </>
       ) : (
         <>
           <section className="room-panel">

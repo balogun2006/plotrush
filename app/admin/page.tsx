@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { FinanceDesk } from "../../components/finance-desk";
+import { PrivacyDesk } from "@/components/privacy-desk";
 import { ThemeDesk } from "../../components/theme-desk";
 import { api, ApiError } from "../../components/api";
 type Access = {
@@ -535,6 +536,7 @@ export default function Editorial() {
               )}
             </section>
           </div>
+          {access.roles.includes("admin") && <PrivacyDesk />}
           <ThemeDesk
             publisher={!!publisher}
             publishEnabled={access.publishEnabled}

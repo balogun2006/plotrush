@@ -1,4 +1,5 @@
 "use client";
+import { InterestPrompt } from "./interest-prompt";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Users, LockKeyhole, Share2, ArrowRight, Check } from "lucide-react";
 import Link from "next/link";
@@ -562,6 +563,7 @@ export function GroupRoom({
                   )}
                 </section>
               )}
+              {room.result && <InterestPrompt />}
               {room.result && (
                 <section className="room-panel room-result">
                   <span className="eyebrow">CASE CLOSED</span>

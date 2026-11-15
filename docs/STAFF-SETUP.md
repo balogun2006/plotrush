@@ -54,3 +54,10 @@ The finance desk lists open refund requests and searches paid Paystack test orde
 ### Sync a Paystack dispute
 
 Find the paid test order by payment reference in the finance desk. Enter the Paystack dispute ID and select **Verify and sync dispute**. The desk shows the latest verified status and whether it blocks future premium starts. Sync again after Paystack updates the dispute. Review or submit evidence in the Paystack dashboard. The finance desk keeps a hold on accepted or ambiguous outcomes, and uses the refund reconciliation workflow for confirmed refunds.
+
+
+## Account privacy review
+
+Only `admin` with fresh MFA can open privacy requests. Submitting a request is not deletion. Review the actual approved retention and backup process, enter their references and an audit reason, and resolve the displayed blockers before completion. Active rooms/staff grants and all financial records prevent completion in this increment. Do not bypass those checks or delete orders; financial erasure requires a finance-specific plan that preserves provider reconciliation. No default administrator is created.
+
+Keep the private deletion ledger securely outside the backup being restored. Replay it against an isolated restore before permitting application traffic. The retention task is dry-run by default and is not scheduled on staging. See [ADR010](ADR-010-ACCOUNT-PRIVACY.md); operator references do not constitute a policy invented or approved by the application.

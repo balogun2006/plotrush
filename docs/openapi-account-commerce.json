@@ -25,6 +25,165 @@
     }
   },
   "paths": {
+    "/admin/privacy-requests": {
+      "get": {
+        "security": [
+          {
+            "session": [],
+            "staffSession": []
+          }
+        ],
+        "x-staff-role": "admin",
+        "responses": {
+          "200": {
+            "description": "Successful response in the data/meta envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {},
+                    "meta": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/privacy-requests/{id}/review": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "post": {
+        "security": [
+          {
+            "session": [],
+            "staffSession": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "expectedRevision": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "decision": {
+                    "type": "string",
+                    "enum": [
+                      "defer",
+                      "complete"
+                    ]
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 10,
+                    "maxLength": 1000
+                  },
+                  "retentionReference": {
+                    "type": "string",
+                    "minLength": 10,
+                    "maxLength": 300
+                  },
+                  "backupReference": {
+                    "type": "string",
+                    "minLength": 10,
+                    "maxLength": 300
+                  },
+                  "retentionReviewed": {
+                    "type": "boolean",
+                    "const": true
+                  }
+                },
+                "required": [
+                  "expectedRevision",
+                  "decision",
+                  "reason",
+                  "retentionReference",
+                  "backupReference",
+                  "retentionReviewed"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response in the data/meta envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {},
+                    "meta": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid document or review"
+          },
+          "403": {
+            "description": "Staff role/fresh MFA required"
+          },
+          "409": {
+            "description": "Stale revision or invalid transition"
+          },
+          "503": {
+            "description": "Publishing disabled or unavailable"
+          }
+        },
+        "x-staff-role": "admin",
+        "description": "Review deletion with expected revision and approved retention/backup references. Active rooms, staff access and all financial records prevent fulfilment. Eligible completion erases personal gameplay/preferences, revokes sessions, pseudonymises identity and records a recovery tombstone. No statutory retention periods are invented."
+      }
+    },
+    "/admin/privacy/deletion-ledger": {
+      "get": {
+        "security": [
+          {
+            "session": [],
+            "staffSession": []
+          }
+        ],
+        "x-staff-role": "admin",
+        "responses": {
+          "200": {
+            "description": "Private no-store minimal deletion ledger attachment for isolated-restore replay"
+          }
+        }
+      }
+    },
     "/admin/themes": {
       "post": {
         "security": [
@@ -2968,6 +3127,512 @@
           }
         },
         "x-staff-role": "content_publisher"
+      }
+    },
+    "/me/interest-prompt": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Successful response in the data/meta envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$schema": "https://json-schema.org/draft/2020-12/schema",
+                      "type": "object",
+                      "properties": {
+                        "eligible": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "eligible"
+                      ]
+                    },
+                    "meta": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/interests/export": {
+      "get": {
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Owner-only uncached JSON attachment of UUID preferences; no email required"
+          }
+        }
+      }
+    },
+    "/account/privacy-requests": {
+      "get": {
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response in the data/meta envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$schema": "https://json-schema.org/draft/2020-12/schema",
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "export",
+                              "deletion"
+                            ]
+                          },
+                          "state": {
+                            "type": "string",
+                            "enum": [
+                              "ready",
+                              "pending",
+                              "deferred",
+                              "cancelled",
+                              "completed"
+                            ]
+                          },
+                          "revision": {
+                            "type": "integer",
+                            "exclusiveMinimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "requestedAt": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "kind",
+                          "state",
+                          "revision",
+                          "requestedAt",
+                          "updatedAt"
+                        ]
+                      }
+                    },
+                    "meta": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/account/export-request": {
+      "post": {
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {},
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response in the data/meta envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$schema": "https://json-schema.org/draft/2020-12/schema",
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "export",
+                            "deletion"
+                          ]
+                        },
+                        "state": {
+                          "type": "string",
+                          "enum": [
+                            "ready",
+                            "pending",
+                            "deferred",
+                            "cancelled",
+                            "completed"
+                          ]
+                        },
+                        "revision": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "requestedAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "kind",
+                        "state",
+                        "revision",
+                        "requestedAt",
+                        "updatedAt"
+                      ]
+                    },
+                    "meta": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid fields or expired code"
+          },
+          "401": {
+            "description": "Session required"
+          },
+          "403": {
+            "description": "Origin, owner or verified identity required"
+          },
+          "409": {
+            "description": "Merge confirmation, stale state or idempotency conflict"
+          },
+          "503": {
+            "description": "Provider not configured or development operation disabled"
+          }
+        }
+      }
+    },
+    "/account/delete-request": {
+      "post": {
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "confirmation": {
+                    "type": "string",
+                    "const": "DELETE MY ACCOUNT"
+                  }
+                },
+                "required": [
+                  "confirmation"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response in the data/meta envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$schema": "https://json-schema.org/draft/2020-12/schema",
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "export",
+                            "deletion"
+                          ]
+                        },
+                        "state": {
+                          "type": "string",
+                          "enum": [
+                            "ready",
+                            "pending",
+                            "deferred",
+                            "cancelled",
+                            "completed"
+                          ]
+                        },
+                        "revision": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "requestedAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "kind",
+                        "state",
+                        "revision",
+                        "requestedAt",
+                        "updatedAt"
+                      ]
+                    },
+                    "meta": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid fields or expired code"
+          },
+          "401": {
+            "description": "Session required"
+          },
+          "403": {
+            "description": "Origin, owner or verified identity required"
+          },
+          "409": {
+            "description": "Merge confirmation, stale state or idempotency conflict"
+          },
+          "503": {
+            "description": "Provider not configured or development operation disabled"
+          }
+        },
+        "description": "Fresh verified owner submits an auditable deletion request. Pending is not erased; financial and backup retention require operator review."
+      }
+    },
+    "/account/privacy-requests/{id}/cancel": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "post": {
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "expectedRevision": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "expectedRevision"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response in the data/meta envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$schema": "https://json-schema.org/draft/2020-12/schema",
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "export",
+                            "deletion"
+                          ]
+                        },
+                        "state": {
+                          "type": "string",
+                          "enum": [
+                            "ready",
+                            "pending",
+                            "deferred",
+                            "cancelled",
+                            "completed"
+                          ]
+                        },
+                        "revision": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "requestedAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "kind",
+                        "state",
+                        "revision",
+                        "requestedAt",
+                        "updatedAt"
+                      ]
+                    },
+                    "meta": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid fields or expired code"
+          },
+          "401": {
+            "description": "Session required"
+          },
+          "403": {
+            "description": "Origin, owner or verified identity required"
+          },
+          "409": {
+            "description": "Merge confirmation, stale state or idempotency conflict"
+          },
+          "503": {
+            "description": "Provider not configured or development operation disabled"
+          }
+        }
+      }
+    },
+    "/account/exports/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "get": {
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fresh verified owner-only no-store account JSON attachment. Includes own notes/summaries/memberships/orders; excludes all case solutions and other players' private evidence/votes."
+          },
+          "403": {
+            "description": "Fresh email verification required"
+          },
+          "404": {
+            "description": "Unknown or non-owned request"
+          }
+        }
       }
     },
     "/cases": {

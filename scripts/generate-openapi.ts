@@ -27,6 +27,12 @@ import {
   uuidInterestInput,
   uuidInterestsSchema,
 } from "../lib/contracts/interests";
+import {
+  deletionRequestInput,
+  privacyRevisionInput,
+  privacyReviewInput,
+  privacyRequestSchema,
+} from "../lib/contracts/privacy";
 import { readFile, writeFile } from "node:fs/promises";
 import { z } from "zod";
 import {
@@ -104,6 +110,33 @@ const draftId = [
   },
 ];
 const staffPaths = {
+  "/admin/privacy-requests": {
+    get: {
+      security: staffSecurity,
+      "x-staff-role": "admin",
+      responses: { "200": response() },
+    },
+  },
+  "/admin/privacy-requests/{id}/review": {
+    parameters: draftId,
+    post: {
+      ...staffPost(privacyReviewInput, "admin"),
+      description:
+        "Review deletion with expected revision and approved retention/backup references. Active rooms, staff access and all financial records prevent fulfilment. Eligible completion erases personal gameplay/preferences, revokes sessions, pseudonymises identity and records a recovery tombstone. No statutory retention periods are invented.",
+    },
+  },
+  "/admin/privacy/deletion-ledger": {
+    get: {
+      security: staffSecurity,
+      "x-staff-role": "admin",
+      responses: {
+        "200": {
+          description:
+            "Private no-store minimal deletion ledger attachment for isolated-restore replay",
+        },
+      },
+    },
+  },
   "/admin/themes": {
     post: staffPost(themeCreateInput, "content_publisher"),
     get: {
@@ -339,6 +372,54 @@ const doc = {
   },
   paths: {
     ...staffPaths,
+    "/me/interest-prompt": {
+      get: {
+        responses: { "200": response(z.object({ eligible: z.boolean() })) },
+      },
+    },
+    "/me/interests/export": {
+      get: {
+        security: [{ session: [] }],
+        responses: {
+          "200": {
+            description:
+              "Owner-only uncached JSON attachment of UUID preferences; no email required",
+          },
+        },
+      },
+    },
+    "/account/privacy-requests": {
+      get: {
+        security: [{ session: [] }],
+        responses: { "200": response(z.array(privacyRequestSchema)) },
+      },
+    },
+    "/account/export-request": { post: post(emptyInput, privacyRequestSchema) },
+    "/account/delete-request": {
+      post: {
+        ...post(deletionRequestInput, privacyRequestSchema),
+        description:
+          "Fresh verified owner submits an auditable deletion request. Pending is not erased; financial and backup retention require operator review.",
+      },
+    },
+    "/account/privacy-requests/{id}/cancel": {
+      parameters: draftId,
+      post: post(privacyRevisionInput, privacyRequestSchema),
+    },
+    "/account/exports/{id}": {
+      parameters: draftId,
+      get: {
+        security: [{ session: [] }],
+        responses: {
+          "200": {
+            description:
+              "Fresh verified owner-only no-store account JSON attachment. Includes own notes/summaries/memberships/orders; excludes all case solutions and other players' private evidence/votes.",
+          },
+          "403": { description: "Fresh email verification required" },
+          "404": { description: "Unknown or non-owned request" },
+        },
+      },
+    },
     "/cases": {
       get: {
         description:

@@ -19,6 +19,7 @@
     "api:generate": "node --import tsx scripts/generate-openapi.ts",
     "api:check": "node --import tsx scripts/generate-openapi.ts --check",
     "payments:work": "node --import tsx scripts/payment-worker.ts",
+    "privacy:work": "node --import tsx scripts/privacy-operations.ts",
     "staff:manage": "node --import tsx scripts/staff.ts"
   },
   "dependencies": {

@@ -24,6 +24,16 @@ import {
   interestDeleteInput,
   uuidInterestInput,
 } from "../contracts/interests";
+import {
+  requestPrivacy,
+  privacyRequests,
+  cancelDeletion,
+  exportAccount,
+} from "../domain/privacy";
+import {
+  deletionRequestInput,
+  privacyRevisionInput,
+} from "../contracts/privacy";
 import { dailyOverview } from "../domain/daily";
 import { dailyStartInput } from "../contracts/daily";
 import { parseFilters } from "../domain/catalogue";
@@ -178,6 +188,17 @@ export async function handle(req: NextRequest, path: string[]) {
     const premium = premiumPolicy();
     if (req.method === "GET" && route === "auth/config")
       return json(emailConfig());
+    if (req.method === "GET" && route === "me/interest-prompt") {
+      if (!actor) return json({ eligible: false });
+      const saved = await interests(db, actor);
+      const done = (
+        await db.query<{ count: number }>(
+          "SELECT count(DISTINCT case_key)::int AS count FROM (SELECT v.case_key FROM app_private.attempts a JOIN app_private.case_versions v ON v.id=a.case_version_id WHERE a.principal_id=$1 AND a.state='revealed' UNION SELECT v.case_key FROM app_private.room_members m JOIN app_private.rooms r ON r.id=m.room_id JOIN app_private.case_versions v ON v.id=r.case_version_id WHERE m.principal_id=$1 AND r.state->>'phase'='revealed') completed",
+          [actor],
+        )
+      ).rows[0].count;
+      return json({ eligible: done === 1 && saved.version === 0 });
+    }
     if (req.method === "GET" && route === "account")
       return json(actor ? await account(db, actor) : { kind: "guest" });
     if (req.method === "GET" && route === "products")
@@ -282,7 +303,7 @@ export async function handle(req: NextRequest, path: string[]) {
               req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
                 "unknown",
             ),
-          10,
+          localAdaptersAllowed() ? 100 : 10,
           60,
         );
         const created = await createIdentity(db);
@@ -297,6 +318,86 @@ export async function handle(req: NextRequest, path: string[]) {
       "Start a case in this browser to continue.",
     );
     if (write) await limit(db, "principal:" + actor, 60, 60);
+    if (req.method === "GET" && route === "account/privacy-requests")
+      return json(await privacyRequests(db, actor));
+    if (req.method === "GET" && route === "me/interests/export") {
+      const response = NextResponse.json(
+        { formatVersion: 1, preferences: await uuidInterests(db, actor) },
+        {
+          headers: {
+            "Cache-Control": "private, no-store",
+            "Content-Disposition":
+              'attachment; filename="plotrush-interests.json"',
+            "X-Content-Type-Options": "nosniff",
+          },
+        },
+      );
+      return response;
+    }
+    if (req.method === "POST" && route === "account/export-request") {
+      z.object({})
+        .strict()
+        .parse(await body(req));
+      return json(
+        await requestPrivacy(
+          db,
+          actor,
+          req.cookies.get(cookie)?.value ?? "",
+          "export",
+        ),
+      );
+    }
+    if (req.method === "POST" && route === "account/delete-request") {
+      deletionRequestInput.parse(await body(req));
+      return json(
+        await requestPrivacy(
+          db,
+          actor,
+          req.cookies.get(cookie)?.value ?? "",
+          "deletion",
+        ),
+      );
+    }
+    if (
+      req.method === "POST" &&
+      path[0] === "account" &&
+      path[1] === "privacy-requests" &&
+      path[3] === "cancel" &&
+      path.length === 4
+    ) {
+      const b = privacyRevisionInput.parse(await body(req));
+      return json(
+        await cancelDeletion(
+          db,
+          actor,
+          req.cookies.get(cookie)?.value ?? "",
+          z.uuid().parse(path[2]),
+          b.expectedRevision,
+        ),
+      );
+    }
+    if (
+      req.method === "GET" &&
+      path[0] === "account" &&
+      path[1] === "exports" &&
+      path.length === 3
+    )
+      return NextResponse.json(
+        await exportAccount(
+          db,
+          actor,
+          req.cookies.get(cookie)?.value ?? "",
+          z.uuid().parse(path[2]),
+        ),
+        {
+          headers: {
+            "Cache-Control": "private, no-store",
+            "Content-Disposition":
+              'attachment; filename="plotrush-account.json"',
+            "X-Content-Type-Options": "nosniff",
+          },
+        },
+      );
     if (req.method === "POST" && route === "auth/request-code") {
       assert(
         emailConfig().available,
