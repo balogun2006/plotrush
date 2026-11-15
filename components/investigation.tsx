@@ -16,6 +16,7 @@ import {
 import { api, ApiError } from "./api";
 import type { Snapshot } from "@/lib/domain/game";
 import { WeddingComic, WeddingPortrait } from "./wedding-comic";
+import { InterestPrompt } from "./interest-prompt";
 import { WeddingResultCard } from "./wedding-result-card";
 export function Investigation({ id }: { id: string }) {
   const [a, setA] = useState<Snapshot | null>(null),
@@ -194,9 +195,7 @@ export function Investigation({ id }: { id: string }) {
           Saved for this browser.
         </p>
         <p role="status">{notice}</p>
-        <Link className="text-link" href="/interests">
-          Make your next mystery more your style <ArrowRight size={16} />
-        </Link>
+        <InterestPrompt />
       </div>
     );
   return (

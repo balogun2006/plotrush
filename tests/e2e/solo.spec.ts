@@ -87,6 +87,13 @@ test("guest completes, resumes and shares a spoiler-free solo mystery", async ({
   await expect(
     page.getByRole("heading", { name: "That’s your aha moment." }),
   ).toBeVisible();
+  const prompt = page.getByRole("region", { name: "Optional interests" });
+  await expect(prompt).toBeVisible();
+  await prompt
+    .getByRole("button", { name: "Skip interests", exact: true })
+    .click();
+  await page.reload();
+  await expect(prompt).toHaveCount(0);
   await page.getByRole("link", { name: "My cases", exact: true }).click();
   await expect(page.getByText("100/100 · View your reveal")).toBeVisible();
 });

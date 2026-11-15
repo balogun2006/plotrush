@@ -226,6 +226,13 @@ export default function Interests() {
           Clear interests
         </button>
       </div>
+      {version > 0 && (
+        <p>
+          <a className="text-link" href="/api/v1/me/interests/export" download>
+            Download my private interests
+          </a>
+        </p>
+      )}
       <p className="save-note">
         No email needed. Guest preferences stay with this browser identity;
         verify an account to keep them across devices. Clearing cookies removes

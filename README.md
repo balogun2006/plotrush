@@ -112,3 +112,6 @@ Browse `/themes` for filter-aware draft inventory and category pages. The protec
 
 
 Discovery now supports multiple theme/mood/difficulty filters, a mobile Apply/Cancel dialog, removable chips and stable page URLs. Publishers can create themes/moods and rename theme URLs with permanent redirects; retired pages return410. Private interests use persisted UUID references with legacy compatibility. [ADR009](docs/ADR-009-DISCOVERY-COMPLETION.md) documents the completed discovery tools, migration and preview boundaries.
+
+
+Optional interests now have a skippable first-result prompt and private JSON export. Verified accounts can prepare private account exports and submit/cancel deletion requests after fresh email verification. Administrator review supports eligible non-financial erasure with retention/backup references; accounts with purchases require separate finance handling. [Account privacy and recovery](docs/ADR-010-ACCOUNT-PRIVACY.md) documents retention dry-run tooling, deletion-ledger replay and remaining policy/activation dependencies.

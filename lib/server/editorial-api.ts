@@ -17,6 +17,11 @@ import {
 } from "../domain/refunds";
 import { paystackConfig, PaystackClient } from "../providers/paystack";
 import { exportFinanceRevenue } from "../domain/finance-revenue";
+import {
+  privacyQueue,
+  reviewDeletion,
+  deletionLedger,
+} from "../domain/privacy";
 import * as editorial from "../domain/editorial";
 import {
   listThemeEditorial,
@@ -97,6 +102,30 @@ export async function handleEditorial(req: NextRequest, path: string[]) {
         staffToken: req.cookies.get("plotrush_staff")?.value,
       },
       route = path.join("/");
+    if (route === "privacy/deletion-ledger" && req.method === "GET")
+      return NextResponse.json(await deletionLedger(db, ctx), {
+        headers: {
+          "Cache-Control": "private, no-store",
+          "Content-Disposition":
+            'attachment; filename="plotrush-deletion-ledger.json"',
+        },
+      });
+    if (route === "privacy-requests" && req.method === "GET")
+      return reply(await privacyQueue(db, ctx));
+    if (
+      path[0] === "privacy-requests" &&
+      path.length === 3 &&
+      path[2] === "review" &&
+      req.method === "POST"
+    )
+      return reply(
+        await reviewDeletion(
+          db,
+          ctx,
+          z.uuid().parse(path[1]),
+          await jsonBody(req),
+        ),
+      );
     if (route === "access" && req.method === "GET") {
       const m = await staffMember(db, actor);
       let verified = false;
