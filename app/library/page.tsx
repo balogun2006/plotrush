@@ -9,6 +9,7 @@ type Item = {
   id: string;
   title: string;
   state: string;
+  termination_reason?: string;
   result: { score: number } | null;
   started_at: string;
 };
@@ -95,7 +96,11 @@ export default function Library() {
                   {a.state === "revealed"
                     ? "CASE CLOSED"
                     : a.state === "abandoned"
-                      ? "SAVED AT ACCOUNT MERGE"
+                      ? a.termination_reason === "expired"
+                        ? "RESUME WINDOW ENDED"
+                        : a.termination_reason === "abandoned"
+                          ? "ENDED BY YOU"
+                          : "SAVED AT ACCOUNT MERGE"
                       : "IN PROGRESS"}
                 </span>
                 <h2>{a.title}</h2>

@@ -1,6 +1,7 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   ArrowRight,
@@ -16,15 +17,18 @@ import {
 import { api, ApiError } from "./api";
 import type { Snapshot } from "@/lib/domain/game";
 import { WeddingComic, WeddingPortrait } from "./wedding-comic";
+import { PrivateNotes, type NotesHandle } from "./private-notes";
 import { InterestPrompt } from "./interest-prompt";
 import { WeddingResultCard } from "./wedding-result-card";
 export function Investigation({ id }: { id: string }) {
+  const router = useRouter();
+  const notesRef = useRef<NotesHandle>(null);
+  const [abandonConfirm, setAbandonConfirm] = useState(false);
   const [a, setA] = useState<Snapshot | null>(null),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     [opened, setOpened] = useState<string[]>([]),
     [tab, setTab] = useState("evidence"),
-    [notes, setNotes] = useState(""),
     [suspect, setSuspect] = useState(""),
     [reason, setReason] = useState(""),
     [confirm, setConfirm] = useState(false),
@@ -35,7 +39,6 @@ export function Investigation({ id }: { id: string }) {
       .then((r) => {
         if (live) {
           setA(r);
-          setNotes(r.notes);
         }
       })
       .catch((e) => {
@@ -51,12 +54,15 @@ export function Investigation({ id }: { id: string }) {
     setError("");
     setNotice("");
     try {
+      await notesRef.current?.flush();
+      const fresh = await api<Snapshot>("solo/attempts/" + id);
       const next = await api<Snapshot>(
         "solo/attempts/" + id + "/" + action,
         action === "notes" ? "PUT" : "POST",
-        { expectedVersion: a.stateVersion, ...body },
+        { expectedVersion: fresh.stateVersion, ...body },
       );
       setA(next);
+      setAbandonConfirm(false);
       if (action === "notes") setNotice("Notes saved.");
       setConfirm(false);
     } catch (e) {
@@ -92,9 +98,38 @@ export function Investigation({ id }: { id: string }) {
       <div className="page-wrap">
         <h1>Saved investigation</h1>
         <p>
-          This duplicate investigation was archived when you combined accounts.
-          Your other active investigation can continue from My cases.
+          {a.terminationReason === "expired"
+            ? "The seven-day resume window ended. Your saved notes and unlocked evidence are kept."
+            : a.terminationReason === "abandoned"
+              ? "You ended this investigation. Your saved notes and unlocked evidence are kept."
+              : "This duplicate investigation was archived when you combined accounts."}
         </p>
+        <a
+          className="text-link"
+          href={` /api/v1/solo/attempts/${id}/transcript`.trim()}
+          download
+        >
+          Download accessible investigation transcript
+        </a>
+        <button
+          className="button dark"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            try {
+              const next = await api<Snapshot>("solo/attempts", "POST", {
+                caseId: a.caseId,
+              });
+              router.push("/play/" + next.id);
+            } catch (e) {
+              setError((e as Error).message);
+              setBusy(false);
+            }
+          }}
+        >
+          Start a new replay
+        </button>
+        {error && <p role="alert">{error}</p>}
         <h2>Your saved notes</h2>
         <p style={{ whiteSpace: "pre-wrap" }}>
           {a.notes || "No notes were saved."}
@@ -161,6 +196,15 @@ export function Investigation({ id }: { id: string }) {
             </p>
           ))}
         </section>
+        <p>
+          <a
+            className="text-link"
+            href={`/api/v1/solo/attempts/${id}/transcript`}
+            download
+          >
+            Download accessible investigation transcript
+          </a>
+        </p>
         <div className="result-actions">
           <Link className="button lime" href="/explore?access=free&mode=solo">
             Another mystery <ArrowRight size={17} />
@@ -219,6 +263,46 @@ export function Investigation({ id }: { id: string }) {
         </span>
       </div>
       {a.caseId === "wedding-gift" && <WeddingComic />}
+      <p className="save-note">
+        Resume this investigation until {new Date(a.expiresAt).toLocaleString()}
+        . No gameplay countdown.
+      </p>
+      <div className="room-actions">
+        <a
+          className="text-link"
+          href={`/api/v1/solo/attempts/${id}/transcript`}
+          download
+        >
+          Download accessible investigation transcript
+        </a>
+        <button className="text-button" onClick={() => setAbandonConfirm(true)}>
+          End this investigation
+        </button>
+      </div>
+      {abandonConfirm && (
+        <section
+          className="room-panel"
+          aria-label="Confirm ending investigation"
+        >
+          <p>
+            End this attempt and keep its saved notes? A new replay will not
+            restore a ranked daily attempt.
+          </p>
+          <button
+            className="button dark"
+            disabled={busy}
+            onClick={() => void act("abandon")}
+          >
+            Confirm end investigation
+          </button>
+          <button
+            className="text-button"
+            onClick={() => setAbandonConfirm(false)}
+          >
+            Keep investigating
+          </button>
+        </section>
+      )}
       <div className="game-layout">
         <aside className="case-brief">
           <div className="brief-top">
@@ -383,37 +467,21 @@ export function Investigation({ id }: { id: string }) {
               </div>
             </div>
           )}
-          {tab === "notes" && (
-            <div role="tabpanel" id="panel-notes" aria-labelledby="tab-notes">
-              <div className="panel-heading">
-                <h2>Your working theory</h2>
-                <NotebookPen size={24} />
-              </div>
-              <p className="muted">Only you can see these notes.</p>
-              <label className="sr-only" htmlFor="notes">
-                Private investigation notes
-              </label>
-              <textarea
-                id="notes"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                maxLength={2000}
-                rows={12}
-                placeholder="Times, contradictions, things worth a second look…"
-              />
-              <div className="notes-bottom">
-                <span>{notes.length}/2000</span>
-                <button
-                  className="button dark"
-                  disabled={busy}
-                  onClick={() => act("notes", { text: notes })}
-                >
-                  Save notes <Check size={16} />
-                </button>
-              </div>
-              <p role="status">{notice}</p>
-            </div>
-          )}
+          <div
+            hidden={tab !== "notes"}
+            role="tabpanel"
+            id="panel-notes"
+            aria-labelledby="tab-notes"
+          >
+            <h2>Your private notes</h2>
+            <PrivateNotes
+              ref={notesRef}
+              endpoint={`solo/attempts/${id}/notes`}
+              label="Private investigation notes"
+              initial={{ notes: a.notes, notesVersion: a.notesVersion }}
+              readOnly={a.readOnly}
+            />
+          </div>
           {tab === "accuse" && (
             <div role="tabpanel" id="panel-accuse" aria-labelledby="tab-accuse">
               <span className="eyebrow">CONNECT THE DOTS</span>

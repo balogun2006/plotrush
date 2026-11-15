@@ -32,7 +32,7 @@ async function dailyHistory(db: Sql, actor: string, day: string) {
     title: string;
     state: string;
   }>(
-    `SELECT a.id,v.id AS version_id,a.daily_day::text AS day,v.case_key,v.content->>'title' AS title,a.state
+    `SELECT a.id,v.id AS version_id,a.daily_day::text AS day,v.case_key,v.content->>'title' AS title,CASE WHEN a.state='investigating' AND a.expires_at<=now() THEN 'abandoned' ELSE a.state END AS state
      FROM app_private.attempts a JOIN app_private.case_versions v ON v.id=a.case_version_id
      WHERE a.principal_id=$1 AND a.daily_day<=$2
      ORDER BY a.daily_day DESC`,

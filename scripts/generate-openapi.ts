@@ -33,6 +33,12 @@ import {
   privacyReviewInput,
   privacyRequestSchema,
 } from "../lib/contracts/privacy";
+import {
+  gameRevisionInput,
+  notesWriteInput,
+  soloNotesInput,
+  notesOutput,
+} from "../lib/contracts/gameplay";
 import { readFile, writeFile } from "node:fs/promises";
 import { z } from "zod";
 import {
@@ -372,6 +378,104 @@ const doc = {
   },
   paths: {
     ...staffPaths,
+    "/solo/attempts": {
+      post: {
+        ...post(z.object({ caseId: z.string().min(1).max(80) }).strict()),
+        parameters: [
+          {
+            name: "Idempotency-Key",
+            in: "header",
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        description:
+          "Start/resume one active frozen case version. Seven-day database expiry, optional 24-hour actor-scoped request receipt. A replay does not replace a completed result or daily credit.",
+      },
+    },
+    "/solo/attempts/{id}/notes": {
+      parameters: draftId,
+      get: {
+        security: [{ session: [] }],
+        responses: { "200": response(notesOutput) },
+      },
+      put: {
+        ...post(soloNotesInput),
+        description:
+          "Private autosaved notes; expectedNotesVersion fences independent note edits. Legacy expectedVersion writes remain supported. Maximum2000 characters.",
+      },
+    },
+    "/solo/attempts/{id}/abandon": {
+      parameters: draftId,
+      post: {
+        ...post(gameRevisionInput),
+        description:
+          "Explicitly end the owned attempt while preserving notes and unlocked evidence; ranked daily reservation remains.",
+      },
+    },
+    "/solo/attempts/{id}/transcript": {
+      parameters: draftId,
+      get: {
+        security: [{ session: [] }],
+        responses: {
+          "200": {
+            description:
+              "Private uncached accessible text attachment of owned unlocked content/notes and revealed result only; no unreleased clues or unrevealed solution.",
+          },
+        },
+      },
+    },
+    "/rooms/{id}/notes": {
+      parameters: draftId,
+      get: {
+        security: [{ session: [] }],
+        responses: { "200": response(notesOutput) },
+      },
+      put: post(notesWriteInput, notesOutput),
+    },
+    "/rooms/{id}/resume": {
+      parameters: draftId,
+      post: {
+        ...post(gameRevisionInput),
+        description:
+          "Original host only, expired recoverable room, two present returning members, paid ownership rechecked. Preserves frozen case, evidence, votes and assignments.",
+      },
+    },
+    "/rooms/{id}/rehost": {
+      parameters: draftId,
+      post: {
+        ...post(emptyInput),
+        description:
+          "Original host only for expired/cancelled rooms. Creates at most one linked replacement per interrupted room, rechecks current case/access, never charges guests or initiates payment.",
+      },
+    },
+    "/rooms/{id}/transcript": {
+      parameters: draftId,
+      get: {
+        security: [{ session: [] }],
+        responses: {
+          "200": {
+            description:
+              "Owned membership-scoped accessible text attachment: own unlocked clues, shared evidence, own notes and revealed result; no other player's private clues/notes/votes.",
+          },
+        },
+      },
+    },
+    "/rooms/{id}/events": {
+      parameters: draftId,
+      get: {
+        security: [{ session: [] }],
+        description:
+          "Authenticated SSE invalidations backed by the private durable room outbox. Data contains room revision only. Membership/session rechecked each second; connections bounded30 seconds and resumed from Last-Event-ID. Client refetches safe snapshot; polling fallback and separate heartbeats remain.",
+        responses: {
+          "200": {
+            description:
+              "text/event-stream with room_changed revision IDs and closed on access revocation",
+          },
+          "401": { description: "Session required" },
+          "404": { description: "Membership required" },
+        },
+      },
+    },
     "/me/interest-prompt": {
       get: {
         responses: { "200": response(z.object({ eligible: z.boolean() })) },

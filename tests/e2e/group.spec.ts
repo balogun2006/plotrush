@@ -55,6 +55,38 @@ test("four browsers share only their own clues and reach a durable group reveal"
       .getByRole("button", { name: "Open the evidence", exact: true })
       .click();
     const id = new URL(host.url()).searchParams.get("room")!;
+    await pages[1]
+      .getByLabel("Private room notes", { exact: true })
+      .fill("Guest-only room notes must never reach the host.");
+    await expect(
+      pages[1].getByText("Notes saved.", { exact: true }),
+    ).toBeVisible();
+    const hostNotes = await host.evaluate(
+      async (id) =>
+        (await (await fetch(`/api/v1/rooms/${id}/notes`)).json()).data,
+      id,
+    );
+    expect(hostNotes.notes).toBe("");
+    const stream = await host.evaluate(async (id) => {
+      const abort = new AbortController();
+      const r = await fetch(`/api/v1/rooms/${id}/events`, {
+          signal: abort.signal,
+        }),
+        reader = r.body!.getReader();
+      const first = await reader.read();
+      abort.abort();
+      return {
+        status: r.status,
+        type: r.headers.get("content-type"),
+        text: new TextDecoder().decode(first.value),
+      };
+    }, id);
+    expect(stream.status).toBe(200);
+    expect(stream.type).toContain("text/event-stream");
+    expect(stream.text).toContain("room_changed");
+    expect(stream.text).not.toMatch(
+      /clue|suspect|answer|Guest-only|Host|nickname|vote/,
+    );
     const bodies = [];
     for (const p of pages) {
       await expect(
@@ -138,6 +170,37 @@ test("four browsers share only their own clues and reach a durable group reveal"
     await expect(
       host.getByRole("heading", { name: "You cracked it, together." }),
     ).toBeVisible();
+    const revoked = await host.evaluate(async (id) => {
+      const abort = new AbortController(),
+        r = await fetch(`/api/v1/rooms/${id}/events`, { signal: abort.signal }),
+        reader = r.body!.getReader();
+      await reader.read();
+      await fetch("/api/v1/auth/sign-out", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      });
+      let closed = false;
+      const timeout = setTimeout(() => abort.abort(), 6000);
+      try {
+        while (true) {
+          const part = await reader.read();
+          if (part.done) break;
+          if (new TextDecoder().decode(part.value).includes("event: closed")) {
+            closed = true;
+            break;
+          }
+        }
+      } finally {
+        clearTimeout(timeout);
+        abort.abort();
+      }
+      return {
+        closed,
+        status: (await fetch(`/api/v1/rooms/${id}/events`)).status,
+      };
+    }, id);
+    expect(revoked).toEqual({ closed: true, status: 401 });
   } finally {
     await Promise.all(contexts.map((c) => c.close()));
   }
