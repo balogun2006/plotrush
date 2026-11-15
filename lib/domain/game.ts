@@ -1,3 +1,4 @@
+import { replayCommand, recordCommand } from "./commands";
 import { randomUUID } from "node:crypto";
 import { Database, Sql } from "../db/types";
 import { Case, caseSchema, card } from "./content";
@@ -14,6 +15,10 @@ type Attempt = {
   round: number;
   state_version: number;
   notes: string;
+  notes_version: number;
+  expires_at: string;
+  termination_reason: string | null;
+  expired: boolean;
   daily_day: string | null;
   hints: string[];
   result: Result | null;
@@ -67,9 +72,19 @@ export async function start(
   actor: string,
   key: string | { day: string; versionId: string },
   premium?: PremiumPolicy,
+  requestKey?: string,
 ) {
   return db.transaction(async (tx) => {
     await lockPrincipal(tx, actor);
+    const receipt = await replayCommand<{ id: string }>(
+      tx,
+      actor,
+      "solo/start",
+      requestKey,
+      { key },
+    );
+    if (receipt) return snapshot(await owned(tx, actor, receipt.id));
+    await expireAttempts(tx, actor);
     const daily = typeof key === "string" ? null : key;
     let dailyDay: string | null = null;
     if (daily) {
@@ -84,8 +99,17 @@ export async function start(
         "SELECT id,state FROM app_private.attempts WHERE principal_id=$1 AND daily_day=$2",
         [actor, day],
       );
-      if (prior.rows[0] && prior.rows[0].state !== "abandoned")
+      if (prior.rows[0] && prior.rows[0].state !== "abandoned") {
+        await recordCommand(
+          tx,
+          actor,
+          "solo/start",
+          requestKey,
+          { key },
+          { id: prior.rows[0].id },
+        );
         return snapshot(await owned(tx, actor, prior.rows[0].id));
+      }
       // An abandoned ranked attempt reserves the date. A replay can still be played.
       if (!prior.rows[0]) dailyDay = day;
     }
@@ -128,12 +152,19 @@ export async function start(
         [id, actor, version.id, dailyDay],
       );
     }
+    await recordCommand(tx, actor, "solo/start", requestKey, { key }, { id });
     return snapshot(await owned(tx, actor, id), c);
   });
 }
+async function expireAttempts(tx: Sql, actor: string) {
+  await tx.query(
+    "UPDATE app_private.attempts SET state='abandoned',termination_reason='expired',state_version=state_version+1 WHERE principal_id=$1 AND state='investigating' AND expires_at<=now()",
+    [actor],
+  );
+}
 async function owned(tx: Sql, actor: string, id: string) {
   const r = await tx.query<Attempt>(
-    "SELECT a.*,a.daily_day::text AS daily_day,v.content FROM app_private.attempts a JOIN app_private.case_versions v ON v.id=a.case_version_id WHERE a.id=$1 AND a.principal_id=$2 FOR UPDATE OF a",
+    "SELECT a.*,a.daily_day::text AS daily_day,(a.expires_at<=now()) AS expired,v.content FROM app_private.attempts a JOIN app_private.case_versions v ON v.id=a.case_version_id WHERE a.id=$1 AND a.principal_id=$2 FOR UPDATE OF a",
     [id, actor],
   );
   assert(
@@ -142,7 +173,14 @@ async function owned(tx: Sql, actor: string, id: string) {
     "NOT_FOUND",
     "Investigation not found for this browser.",
   );
-  return r.rows[0];
+  const a = r.rows[0];
+  if (a.state === "investigating" && a.expired) {
+    await expireAttempts(tx, actor);
+    a.state = "abandoned";
+    a.termination_reason = "expired";
+    a.state_version++;
+  }
+  return a;
 }
 function snapshot(a: Attempt, c: Case = caseSchema.parse(a.content)) {
   return {
@@ -159,6 +197,10 @@ function snapshot(a: Attempt, c: Case = caseSchema.parse(a.content)) {
     startedAt: a.started_at,
     completedAt: a.completed_at,
     notes: a.notes,
+    notesVersion: a.notes_version,
+    expiresAt: a.expires_at,
+    terminationReason: a.termination_reason,
+    readOnly: a.state !== "investigating",
     suspects: c.suspects,
     reasons: c.reasons,
     rounds: c.rounds
@@ -190,88 +232,129 @@ export async function mutate(
   action: string,
   body: {
     expectedVersion: number;
+    expectedNotesVersion?: number;
     text?: string;
     hintId?: string;
     suspectId?: string;
     reasonId?: string;
   },
+  requestKey?: string,
 ) {
-  return db.transaction(async (tx) => {
-    await lockPrincipal(tx, actor);
-    const a = await owned(tx, actor, id),
-      c = caseSchema.parse(a.content);
-    if (action === "accusation" && a.result) return snapshot(a, c); // Immutable result on retried submission.
-    assert(
-      a.state_version === body.expectedVersion,
-      409,
-      "STALE_STATE",
-      "This investigation changed. Review the latest state and try again.",
-    );
-    assert(
-      a.state === "investigating",
-      422,
-      "READ_ONLY",
-      "This investigation is complete.",
-    );
-    if (action === "advance") {
+  return db
+    .transaction(async (tx) => {
+      await lockPrincipal(tx, actor);
+      const a = await owned(tx, actor, id),
+        c = caseSchema.parse(a.content);
+      const route = "solo/" + id + "/" + action;
+      const receipt = await replayCommand<{ id: string }>(
+        tx,
+        actor,
+        route,
+        requestKey,
+        body,
+      );
+      if (receipt) return { snapshot: snapshot(a, c) };
+      if (action === "accusation" && a.result) {
+        await recordCommand(tx, actor, route, requestKey, body, { id });
+        return { snapshot: snapshot(a, c) }; // Immutable result on retried submission.
+      }
+      if (a.state !== "investigating")
+        return {
+          failure: {
+            status: 422,
+            code: "READ_ONLY",
+            message:
+              a.termination_reason === "expired"
+                ? "The seven-day resume window ended. Your notes are kept."
+                : "This investigation is read-only.",
+          },
+        };
       assert(
-        a.round < c.rounds.length,
+        action === "notes" && body.expectedNotesVersion !== undefined
+          ? a.notes_version === body.expectedNotesVersion
+          : a.state_version === body.expectedVersion,
+        409,
+        "STALE_STATE",
+        "This investigation changed. Review the latest state and try again.",
+      );
+      assert(
+        a.state === "investigating",
         422,
-        "FINAL_ROUND",
-        "All rounds are unlocked. Make your accusation.",
+        "READ_ONLY",
+        "This investigation is complete.",
       );
-      a.round++;
-    } else if (action === "notes") {
-      a.notes = body.text ?? "";
-    } else if (action === "hints") {
-      assert(
-        c.rounds
-          .filter((r) => r.number <= a.round)
-          .some((r) => r.hints.some((h) => h.id === body.hintId)),
-        404,
-        "HINT_UNAVAILABLE",
-        "Hint unavailable.",
+      if (action === "abandon") {
+        a.state = "abandoned";
+        a.termination_reason = "abandoned";
+      } else if (action === "advance") {
+        assert(
+          a.round < c.rounds.length,
+          422,
+          "FINAL_ROUND",
+          "All rounds are unlocked. Make your accusation.",
+        );
+        a.round++;
+      } else if (action === "notes") {
+        a.notes = body.text ?? "";
+      } else if (action === "hints") {
+        assert(
+          c.rounds
+            .filter((r) => r.number <= a.round)
+            .some((r) => r.hints.some((h) => h.id === body.hintId)),
+          404,
+          "HINT_UNAVAILABLE",
+          "Hint unavailable.",
+        );
+        if (!a.hints.includes(body.hintId!)) a.hints.push(body.hintId!);
+      } else if (action === "accusation") {
+        assert(
+          a.round === c.rounds.length,
+          422,
+          "ROUND_LOCKED",
+          "Finish the investigation rounds first.",
+        );
+        assert(
+          c.suspects.some((s) => s.id === body.suspectId) &&
+            c.reasons.some((r) => r.id === body.reasonId),
+          400,
+          "CHOICE_INVALID",
+          "Choose a valid suspect and reason.",
+        );
+        const score =
+          (body.suspectId === c.answer.suspectId ? 60 : 0) +
+          (body.reasonId === c.answer.reasonId ? 40 : 0);
+        a.result = {
+          suspectId: body.suspectId!,
+          reasonId: body.reasonId!,
+          score,
+          solved: score === 100,
+          answer: c.answer,
+        };
+        a.state = "revealed";
+      } else assert(false, 404, "NOT_FOUND", "Action unavailable.");
+      await tx.query(
+        "UPDATE app_private.attempts SET round=$2,state=$3,state_version=state_version+1,notes=$4,hints=$5,result=$6,completed_at=CASE WHEN $3='revealed' THEN now() ELSE NULL END,notes_version=notes_version+CASE WHEN $7 THEN 1 ELSE 0 END,termination_reason=$8 WHERE id=$1",
+        [
+          id,
+          a.round,
+          a.state,
+          a.notes,
+          JSON.stringify(a.hints),
+          a.result ? JSON.stringify(a.result) : null,
+          action === "notes",
+          a.termination_reason,
+        ],
       );
-      if (!a.hints.includes(body.hintId!)) a.hints.push(body.hintId!);
-    } else if (action === "accusation") {
-      assert(
-        a.round === c.rounds.length,
-        422,
-        "ROUND_LOCKED",
-        "Finish the investigation rounds first.",
-      );
-      assert(
-        c.suspects.some((s) => s.id === body.suspectId) &&
-          c.reasons.some((r) => r.id === body.reasonId),
-        400,
-        "CHOICE_INVALID",
-        "Choose a valid suspect and reason.",
-      );
-      const score =
-        (body.suspectId === c.answer.suspectId ? 60 : 0) +
-        (body.reasonId === c.answer.reasonId ? 40 : 0);
-      a.result = {
-        suspectId: body.suspectId!,
-        reasonId: body.reasonId!,
-        score,
-        solved: score === 100,
-        answer: c.answer,
-      };
-      a.state = "revealed";
-    } else assert(false, 404, "NOT_FOUND", "Action unavailable.");
-    await tx.query(
-      "UPDATE app_private.attempts SET round=$2,state=$3,state_version=state_version+1,notes=$4,hints=$5,result=$6,completed_at=CASE WHEN $3='revealed' THEN now() ELSE NULL END WHERE id=$1",
-      [
-        id,
-        a.round,
-        a.state,
-        a.notes,
-        JSON.stringify(a.hints),
-        a.result ? JSON.stringify(a.result) : null,
-      ],
-    );
-    return snapshot(await owned(tx, actor, id), c);
-  });
+      await recordCommand(tx, actor, route, requestKey, body, { id });
+      return { snapshot: snapshot(await owned(tx, actor, id), c) };
+    })
+    .then((r) => {
+      if ("failure" in r) {
+        const f = r.failure!;
+        assert(false, f.status, f.code, f.message);
+      }
+      return r.snapshot!;
+    });
 }
 export async function library(db: Sql, actor: string) {
   return (
@@ -282,8 +365,32 @@ export async function library(db: Sql, actor: string) {
       result: { score: number } | null;
       title: string;
     }>(
-      "SELECT a.id,a.state,a.started_at,CASE WHEN a.result IS NULL THEN NULL ELSE jsonb_build_object('score',a.result->'score') END AS result,v.content->>'title' AS title FROM app_private.attempts a JOIN app_private.case_versions v ON v.id=a.case_version_id WHERE a.principal_id=$1 ORDER BY a.started_at DESC LIMIT 100",
+      "SELECT a.id,CASE WHEN a.state='investigating' AND a.expires_at<=now() THEN 'abandoned' ELSE a.state END AS state,CASE WHEN a.state='investigating' AND a.expires_at<=now() THEN 'expired' ELSE a.termination_reason END AS termination_reason,a.started_at,CASE WHEN a.result IS NULL THEN NULL ELSE jsonb_build_object('score',a.result->'score') END AS result,v.content->>'title' AS title FROM app_private.attempts a JOIN app_private.case_versions v ON v.id=a.case_version_id WHERE a.principal_id=$1 ORDER BY a.started_at DESC LIMIT 100",
       [actor],
     )
   ).rows;
+}
+
+export async function soloTranscript(db: Database, actor: string, id: string) {
+  const a = await read(db, actor, id);
+  return [
+    a.title,
+    `State: ${a.state}`,
+    `Resume until: ${new Date(a.expiresAt).toISOString()}`,
+    a.briefing,
+    ...a.rounds.flatMap((r) => [
+      r.title,
+      ...r.clues.map((c) => c.title + "\n" + c.body),
+      ...r.hints.filter((h) => h.text).map((h) => "Hint: " + h.text),
+    ]),
+    "Your private notes",
+    a.notes,
+    ...(a.result
+      ? [
+          `Score: ${a.result.score}/100`,
+          a.result.answer.explanation,
+          ...Object.values(a.result.answer.eliminations),
+        ]
+      : []),
+  ].join("\n\n");
 }

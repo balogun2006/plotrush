@@ -1,3 +1,4 @@
+import { replayCommand, recordCommand } from "./commands";
 import { randomBytes, randomUUID } from "node:crypto";
 import { z } from "zod";
 import { Database, Sql } from "../db/types";
@@ -32,6 +33,7 @@ type Phase =
   | "cancelled";
 type Vote = { suspectId: string; reasonId: string };
 type RoomState = {
+  recovery?: { phase: Phase; remainingMs: number };
   phase: Phase;
   round: number;
   deadline: number | null;
@@ -153,13 +155,25 @@ function reveal(r: Room, ms: Member[]) {
   s.deadline = null;
   s.pausedAt = null;
 }
+function expireRoom(r: Room, now: number) {
+  const s = r.state;
+  if (!terminal(s))
+    s.recovery = {
+      phase: s.phase,
+      remainingMs: Math.max(
+        30000,
+        Math.min(300000, (s.deadline ?? now + 60000) - now),
+      ),
+    };
+  s.phase = "expired";
+  s.deadline = null;
+}
 // All time and catch-up decisions occur under the room lock, using the database clock.
 function advanceDue(r: Room, ms: Member[], now: number) {
   const s = r.state;
   if (terminal(s)) return;
   if (now >= new Date(r.expires_at).getTime()) {
-    s.phase = "expired";
-    s.deadline = null;
+    expireRoom(r, now);
     return;
   }
   const online = connected(ms, now);
@@ -176,8 +190,7 @@ function advanceDue(r: Room, ms: Member[], now: number) {
   }
   if (s.pausedAt !== null) {
     if (now - s.pausedAt >= 300000) {
-      s.phase = "expired";
-      s.deadline = null;
+      expireRoom(r, now);
       return;
     }
     if (online.length < 2) return;
@@ -223,6 +236,9 @@ function project(r: Room, ms: Member[], actor: string) {
     deadline: s.deadline,
     paused: s.pausedAt !== null,
     isHost: s.host === actor,
+    isOwner: r.host_id === actor,
+    canResume: s.phase === "expired" && !!s.recovery,
+    caseId: c.key,
     seat: me.seat,
     access: c.access,
     minPlayers: minimumPlayers(c),
@@ -248,71 +264,127 @@ function minimumPlayers(c: Case) {
   return c.access === "paid" ? Math.max(4, c.minPlayers) : c.minPlayers;
 }
 export type RoomSnapshot = ReturnType<typeof project>;
-export async function createRoom(
-  db: Database,
+async function createRoomIn(
+  tx: Sql,
   actor: string,
   key: string,
   name: string,
   premium?: PremiumPolicy,
 ) {
   name = displayName.parse(name);
-  return db.transaction(async (tx) => {
-    await lockPrincipal(tx, actor);
-    const v = await playableVersion(tx, key);
-    assert(v, 404, "NOT_FOUND", "Case unavailable.");
-    const c = caseSchema.parse(v.content);
+  await lockPrincipal(tx, actor);
+  const v = await playableVersion(tx, key);
+  assert(v, 404, "NOT_FOUND", "Case unavailable.");
+  const c = caseSchema.parse(v.content);
+  assert(
+    c.modes.includes("group"),
+    403,
+    "CASE_UNAVAILABLE",
+    "This case is unavailable for group play.",
+  );
+  if (c.access === "paid") await requirePremium(tx, actor, v, "group", premium);
+  else
     assert(
-      c.modes.includes("group"),
+      c.kind === "tutorial",
       403,
       "CASE_UNAVAILABLE",
-      "This case is unavailable for group play.",
+      "Choose a free group tutorial.",
     );
-    if (c.access === "paid")
-      await requirePremium(tx, actor, v, "group", premium);
-    else
-      assert(
-        c.kind === "tutorial",
-        403,
-        "CASE_UNAVAILABLE",
-        "Choose a free group tutorial.",
+  const id = randomUUID(),
+    code = randomBytes(6).toString("hex").toUpperCase();
+  const state: RoomState = {
+    phase: "lobby",
+    round: 0,
+    deadline: null,
+    host: actor,
+    assignments: {},
+    shared: [],
+    votes: {},
+    pausedAt: null,
+    result: null,
+  };
+  await tx.query(
+    "INSERT INTO app_private.rooms(id,host_id,case_version_id,invite_hash,state) VALUES($1,$2,$3,$4,$5)",
+    [id, actor, v.id, hash(code), JSON.stringify(state)],
+  );
+  await tx.query(
+    "INSERT INTO app_private.room_members(room_id,principal_id,nickname,seat) VALUES($1,$2,$3,0)",
+    [id, actor, name],
+  );
+  return {
+    room: project(await lock(tx, id), await members(tx, id), actor),
+    inviteCode: code,
+  };
+}
+export async function createRoom(
+  db: Database,
+  actor: string,
+  key: string,
+  name: string,
+  premium?: PremiumPolicy,
+  requestKey?: string,
+) {
+  return db.transaction(async (tx) => {
+    await lockPrincipal(tx, actor);
+    const input = { key, name },
+      receipt = await replayCommand<{ roomId: string; inviteCode: string }>(
+        tx,
+        actor,
+        "rooms/create",
+        requestKey,
+        input,
       );
-    const id = randomUUID(),
-      code = randomBytes(6).toString("hex").toUpperCase();
-    const state: RoomState = {
-      phase: "lobby",
-      round: 0,
-      deadline: null,
-      host: actor,
-      assignments: {},
-      shared: [],
-      votes: {},
-      pausedAt: null,
-      result: null,
-    };
-    await tx.query(
-      "INSERT INTO app_private.rooms(id,host_id,case_version_id,invite_hash,state) VALUES($1,$2,$3,$4,$5)",
-      [id, actor, v.id, hash(code), JSON.stringify(state)],
-    );
-    await tx.query(
-      "INSERT INTO app_private.room_members(room_id,principal_id,nickname,seat) VALUES($1,$2,$3,0)",
-      [id, actor, name],
-    );
-    return {
-      room: project(await lock(tx, id), await members(tx, id), actor),
-      inviteCode: code,
-    };
+    if (receipt)
+      return {
+        room: await replayRoom(tx, actor, receipt.roomId),
+        inviteCode: receipt.inviteCode,
+      };
+    const result = await createRoomIn(tx, actor, key, name, premium);
+    await recordCommand(tx, actor, "rooms/create", requestKey, input, {
+      roomId: result.room.id,
+      inviteCode: result.inviteCode,
+    });
+    return result;
   });
+}
+async function replayRoom(tx: Sql, actor: string, id: string) {
+  const r = await lock(tx, id),
+    ms = await members(tx, id);
+  assert(
+    ms.some(
+      (m) =>
+        m.principal_id === actor &&
+        (!m.departed || (r.host_id === actor && terminal(r.state))),
+    ),
+    404,
+    "NOT_FOUND",
+    "Room unavailable for this browser.",
+  );
+  const before = JSON.stringify(r.state);
+  advanceDue(r, ms, new Date(r.clock).getTime());
+  if (before !== JSON.stringify(r.state)) await persist(tx, r, ms);
+  return project(r, ms, actor);
 }
 export async function joinRoom(
   db: Database,
   actor: string,
   code: string,
   name: string,
+  requestKey?: string,
 ) {
   code = inviteCode.parse(code);
   name = displayName.parse(name);
   return db.transaction(async (tx) => {
     await lockPrincipal(tx, actor);
+    const request = { code, name },
+      receipt = await replayCommand<{ roomId: string }>(
+        tx,
+        actor,
+        "rooms/join",
+        requestKey,
+        request,
+      );
+    if (receipt) return replayRoom(tx, actor, receipt.roomId);
     const found = (
       await tx.query<{ id: string }>(
         "SELECT id FROM app_private.rooms WHERE invite_hash=$1",
@@ -327,6 +399,9 @@ export async function joinRoom(
     const existing = ms.find((m) => m.principal_id === actor);
     if (existing && !existing.departed) {
       await persist(tx, r, ms);
+      await recordCommand(tx, actor, "rooms/join", requestKey, request, {
+        roomId: r.id,
+      });
       return project(r, ms, actor);
     }
     assert(
@@ -360,6 +435,9 @@ export async function joinRoom(
       r,
       ms.filter((m) => m.principal_id !== actor),
     );
+    await recordCommand(tx, actor, "rooms/join", requestKey, request, {
+      roomId: r.id,
+    });
     return project(r, await members(tx, r.id), actor);
   });
 }
@@ -377,14 +455,28 @@ export async function roomAction(
   action = "read",
   input?: RoomCommand,
   premium?: PremiumPolicy,
+  requestKey?: string,
 ) {
   return db
     .transaction(async (tx) => {
       await lockPrincipal(tx, actor);
       const r = await lock(tx, id),
         ms = await members(tx, id),
-        me = ms.find((m) => m.principal_id === actor && !m.departed);
+        me = ms.find(
+          (m) =>
+            m.principal_id === actor &&
+            (!m.departed || (r.host_id === actor && terminal(r.state))),
+        );
       assert(me, 404, "NOT_FOUND", "Room not found for this browser.");
+      const route = "rooms/" + id + "/" + action;
+      const receipt = await replayCommand<{ roomId: string }>(
+        tx,
+        actor,
+        route,
+        requestKey,
+        input ?? {},
+      );
+      if (receipt) return { snapshot: project(r, ms, actor) };
       const now = new Date(r.clock).getTime(),
         before = JSON.stringify(r.state);
       advanceDue(r, ms, now);
@@ -398,6 +490,9 @@ export async function roomAction(
           (r.state.votes[actor] || r.state.phase === "revealed")
         ) {
           if (before !== JSON.stringify(r.state)) await persist(tx, r, ms);
+          await recordCommand(tx, actor, route, requestKey, input ?? {}, {
+            roomId: id,
+          });
           return { snapshot: project(r, ms, actor) };
         }
         if (
@@ -411,11 +506,53 @@ export async function roomAction(
             "The room changed. Review it and try again.",
           );
         }
-        if (terminal(r.state))
+        if (terminal(r.state) && action !== "resume")
           return fail(422, "READ_ONLY", "This room has ended.");
       }
       const s = r.state;
-      if (action === "heartbeat" && !terminal(s)) {
+      if (action === "resume") {
+        assert(
+          r.host_id === actor,
+          403,
+          "OWNER_REQUIRED",
+          "Only the original host can recover this room.",
+        );
+        assert(
+          s.phase === "expired" && s.recovery,
+          422,
+          "RECOVERY_UNAVAILABLE",
+          "This room cannot resume. You can rehost an ended room instead.",
+        );
+        assert(
+          connected(ms, now).length >= 2,
+          422,
+          "NOT_READY",
+          "At least two returning players must be present to resume.",
+        );
+        if (r.content.access === "paid")
+          await requirePremium(
+            tx,
+            actor,
+            {
+              id: r.case_version_id,
+              content: r.content,
+              status: r.version_status,
+            },
+            "group",
+            premium,
+          );
+        s.phase = s.recovery.phase;
+        s.deadline = s.phase === "lobby" ? null : now + s.recovery.remainingMs;
+        s.pausedAt = null;
+        delete s.recovery;
+        await tx.query(
+          "UPDATE app_private.rooms SET expires_at=now()+interval '24 hours' WHERE id=$1",
+          [id],
+        );
+      } else if (
+        action === "heartbeat" &&
+        (!terminal(s) || s.phase === "expired")
+      ) {
         me.last_seen_at = r.clock;
         advanceDue(r, ms, now);
       } else if (action === "ready") {
@@ -553,6 +690,10 @@ export async function roomAction(
           "UPDATE app_private.room_members SET last_seen_at=$3 WHERE room_id=$1 AND principal_id=$2",
           [id, actor, r.clock],
         );
+      if (action !== "read" && action !== "heartbeat")
+        await recordCommand(tx, actor, route, requestKey, input ?? {}, {
+          roomId: id,
+        });
       return { snapshot: project(r, ms, actor) };
     })
     .then((result) => {
@@ -566,8 +707,159 @@ export async function roomAction(
 export async function roomLibrary(db: Sql, actor: string) {
   return (
     await db.query<{ id: string; title: string; phase: Phase }>(
-      "SELECT r.id,v.content->>'title' AS title,r.state->>'phase' AS phase FROM app_private.rooms r JOIN app_private.room_members m ON m.room_id=r.id JOIN app_private.case_versions v ON v.id=r.case_version_id WHERE m.principal_id=$1 AND NOT m.departed ORDER BY r.created_at DESC LIMIT 20",
+      "SELECT r.id,v.content->>'title' AS title,r.state->>'phase' AS phase FROM app_private.rooms r JOIN app_private.room_members m ON m.room_id=r.id JOIN app_private.case_versions v ON v.id=r.case_version_id WHERE m.principal_id=$1 AND (NOT m.departed OR (r.host_id=$1 AND r.state->>'phase' IN ('expired','cancelled','revealed'))) ORDER BY r.created_at DESC LIMIT 20",
       [actor],
     )
   ).rows;
+}
+
+export async function rehostRoom(
+  db: Database,
+  actor: string,
+  id: string,
+  premium?: PremiumPolicy,
+  requestKey?: string,
+) {
+  return db.transaction(async (tx) => {
+    await lockPrincipal(tx, actor);
+    const r = await lock(tx, id),
+      ms = await members(tx, id);
+    assert(
+      r.host_id === actor,
+      403,
+      "OWNER_REQUIRED",
+      "Only the original host can rehost this case.",
+    );
+    advanceDue(r, ms, new Date(r.clock).getTime());
+    assert(
+      ["expired", "cancelled"].includes(r.state.phase),
+      422,
+      "RECOVERY_UNAVAILABLE",
+      "Rehost is available only for an interrupted, ended room.",
+    );
+    const prior = (
+      await tx.query<{ target_room_id: string; invite_code: string }>(
+        "SELECT target_room_id,invite_code FROM app_private.room_recoveries WHERE source_room_id=$1",
+        [id],
+      )
+    ).rows[0];
+    if (prior)
+      return {
+        room: await replayRoom(tx, actor, prior.target_room_id),
+        inviteCode: prior.invite_code,
+      };
+    const result = await createRoomIn(
+      tx,
+      actor,
+      r.content.key,
+      ms.find((m) => m.principal_id === actor)!.nickname,
+      premium,
+    );
+    await persist(tx, r, ms);
+    await tx.query(
+      "INSERT INTO app_private.room_recoveries(source_room_id,target_room_id,owner_id,invite_code) VALUES($1,$2,$3,$4)",
+      [id, result.room.id, actor, result.inviteCode],
+    );
+    await recordCommand(
+      tx,
+      actor,
+      "rooms/" + id + "/rehost",
+      requestKey,
+      {},
+      { roomId: result.room.id },
+    );
+    return result;
+  });
+}
+export async function privateRoomNotes(
+  db: Database,
+  actor: string,
+  id: string,
+  input?: { text: string; expectedNotesVersion: number },
+  requestKey?: string,
+) {
+  return db.transaction(async (tx) => {
+    await lockPrincipal(tx, actor);
+    const r = await lock(tx, id);
+    assert(
+      (await members(tx, id)).some((m) => m.principal_id === actor),
+      404,
+      "NOT_FOUND",
+      "Private notes unavailable.",
+    );
+    const row = (
+      await tx.query<{ notes: string; version: number }>(
+        "SELECT notes,version FROM app_private.room_notes WHERE room_id=$1 AND principal_id=$2 FOR UPDATE",
+        [id, actor],
+      )
+    ).rows[0] ?? { notes: "", version: 0 };
+    const readOnly =
+      terminal(r.state) ||
+      new Date(r.clock).getTime() >= new Date(r.expires_at).getTime() ||
+      (await members(tx, id)).find((m) => m.principal_id === actor)!.departed;
+    if (input) {
+      const receipt = await replayCommand(
+        tx,
+        actor,
+        "room-notes/" + id,
+        requestKey,
+        input,
+      );
+      if (!receipt) {
+        assert(
+          !readOnly,
+          422,
+          "READ_ONLY",
+          "Notes for ended rooms are read-only.",
+        );
+        assert(
+          input.expectedNotesVersion === row.version,
+          409,
+          "STALE_NOTES",
+          "Notes changed in another tab. Review the latest version before replacing them.",
+        );
+        await tx.query(
+          "INSERT INTO app_private.room_notes(room_id,principal_id,notes,version) VALUES($1,$2,$3,1) ON CONFLICT(room_id,principal_id) DO UPDATE SET notes=excluded.notes,version=app_private.room_notes.version+1,updated_at=now()",
+          [id, actor, input.text],
+        );
+        row.notes = input.text;
+        row.version++;
+        await recordCommand(tx, actor, "room-notes/" + id, requestKey, input, {
+          roomId: id,
+        });
+      }
+    }
+    return {
+      notes: row.notes,
+      notesVersion: row.version,
+      readOnly,
+      archivedNotes: (
+        await tx.query<{ id: string; notes: string }>(
+          "SELECT id,notes FROM app_private.room_note_archives WHERE room_id=$1 AND principal_id=$2 ORDER BY archived_at,id",
+          [id, actor],
+        )
+      ).rows,
+    };
+  });
+}
+export async function roomTranscript(db: Database, actor: string, id: string) {
+  const room = await roomAction(db, actor, id),
+    notes = await privateRoomNotes(db, actor, id);
+  return [
+    room.title,
+    `Phase: ${room.phase}`,
+    room.briefing,
+    "Your private evidence",
+    ...room.privateClues.map((c) => c.title + "\n" + c.body),
+    "Shared evidence",
+    ...room.sharedClues.map((c) => c.title + "\n" + c.body),
+    "Your private notes",
+    notes.notes,
+    ...notes.archivedNotes.map(
+      (n) => "Notes saved at account merge\n" + n.notes,
+    ),
+    ...(room.result
+      ? [`Score: ${room.result.score}/100`, room.result.answer.explanation]
+      : []),
+  ].join("\n\n");
 }

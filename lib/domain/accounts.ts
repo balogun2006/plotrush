@@ -107,6 +107,9 @@ async function merge(
   target: string,
   replaceInterests: boolean,
 ) {
+  await tx.query("DELETE FROM app_private.command_receipts WHERE actor_id=$1", [
+    source,
+  ]);
   // Lock rooms whose guest memberships will move. A room belonging only to the
   // destination account needs no changes and can stay active during sign-in.
   const rooms = (
@@ -149,10 +152,31 @@ async function merge(
        AND a.id=CASE WHEN s.state='revealed' AND t.state<>'revealed' THEN t.id ELSE s.id END`,
     [source, target],
   );
+  await tx.query(
+    "UPDATE app_private.attempts SET state='abandoned',termination_reason='expired',state_version=state_version+1 WHERE principal_id=ANY($1::uuid[]) AND state='investigating' AND expires_at<=now()",
+    [[source, target]],
+  );
+  // Keep both private note drafts when two identities occupied the same room.
+  await tx.query(
+    "INSERT INTO app_private.room_note_archives(room_id,principal_id,notes) SELECT s.room_id,$2,s.notes FROM app_private.room_notes s JOIN app_private.room_notes t ON t.room_id=s.room_id AND t.principal_id=$2 WHERE s.principal_id=$1 AND s.notes<>t.notes AND s.notes<>''",
+    [source, target],
+  );
+  await tx.query(
+    "DELETE FROM app_private.room_notes s WHERE s.principal_id=$1 AND EXISTS(SELECT 1 FROM app_private.room_notes t WHERE t.room_id=s.room_id AND t.principal_id=$2)",
+    [source, target],
+  );
+  await tx.query(
+    "UPDATE app_private.room_notes SET principal_id=$2,version=version+1 WHERE principal_id=$1",
+    [source, target],
+  );
+  await tx.query(
+    "UPDATE app_private.room_note_archives SET principal_id=$2 WHERE principal_id=$1",
+    [source, target],
+  );
   // Prefer the ranked active attempt. Otherwise keep the destination's notes
   // active and archive the duplicate without deleting its progress.
   await tx.query(
-    `UPDATE app_private.attempts a SET state='abandoned'
+    `UPDATE app_private.attempts a SET state='abandoned',termination_reason='account_merge',state_version=a.state_version+1
      FROM app_private.attempts s,app_private.attempts t
      WHERE s.principal_id=$1 AND t.principal_id=$2 AND s.case_version_id=t.case_version_id
        AND s.state='investigating' AND t.state='investigating'

@@ -131,6 +131,18 @@ export async function exportAccount(
       preferences,
       investigations,
       memberships,
+      archivedRoomNotes: (
+        await tx.query(
+          "SELECT room_id,notes,archived_at FROM app_private.room_note_archives WHERE principal_id=$1",
+          [actor],
+        )
+      ).rows,
+      roomNotes: (
+        await tx.query(
+          "SELECT room_id,notes,version FROM app_private.room_notes WHERE principal_id=$1",
+          [actor],
+        )
+      ).rows,
       purchases,
       scope:
         "Your profile, preferences, notes, investigation summaries, memberships and orders. Other players' evidence/votes, case solutions and service credentials are excluded.",
@@ -188,6 +200,16 @@ async function scrubPrincipal(tx: Sql, actor: string) {
     "DELETE FROM app_private.auth_challenges WHERE principal_id=$1",
     [actor],
   );
+  await tx.query("DELETE FROM app_private.command_receipts WHERE actor_id=$1", [
+    actor,
+  ]);
+  await tx.query(
+    "DELETE FROM app_private.room_note_archives WHERE principal_id=$1",
+    [actor],
+  );
+  await tx.query("DELETE FROM app_private.room_notes WHERE principal_id=$1", [
+    actor,
+  ]);
   await tx.query("DELETE FROM app_private.interests WHERE principal_id=$1", [
     actor,
   ]);
@@ -417,6 +439,12 @@ export async function retentionSweep(
           [row.id, reference, backupReference],
         );
       }
+      await tx.query(
+        "DELETE FROM app_private.command_receipts WHERE (actor_id,route,key) IN (SELECT actor_id,route,key FROM app_private.command_receipts WHERE expires_at<now() LIMIT 100)",
+      );
+      await tx.query(
+        "DELETE FROM app_private.room_events WHERE (room_id,revision) IN (SELECT room_id,revision FROM app_private.room_events WHERE created_at<now()-interval '7 days' LIMIT 100)",
+      );
       await tx.query(
         "DELETE FROM app_private.auth_challenges WHERE id IN (SELECT id FROM app_private.auth_challenges WHERE expires_at<now()-interval '1 day' ORDER BY expires_at LIMIT 100)",
       );

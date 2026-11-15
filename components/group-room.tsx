@@ -1,4 +1,5 @@
 "use client";
+import { PrivateNotes } from "./private-notes";
 import { InterestPrompt } from "./interest-prompt";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Users, LockKeyhole, Share2, ArrowRight, Check } from "lucide-react";
@@ -26,20 +27,22 @@ export function GroupRoom({
     [saved, setSaved] = useState<SavedRoom[]>([]);
   const [suspect, setSuspect] = useState(""),
     [reason, setReason] = useState("");
+  const pendingEntry = useRef<{ body: string; key: string } | null>(null);
   const latest = useRef(room);
-  useEffect(() => {
-    latest.current = room;
-  }, [room]);
+  const selectedRoom = useRef<string | null>(null);
   const apply = useCallback((next: RoomSnapshot) => {
-    setRoom((old) =>
-      !old || old.id !== next.id || next.stateVersion >= old.stateVersion
-        ? next
-        : old,
-    );
+    if (selectedRoom.current !== next.id) return;
+    const old = latest.current;
+    if (!old || old.id !== next.id || next.stateVersion >= old.stateVersion) {
+      latest.current = next;
+      setRoom(next);
+    }
   }, []);
   const load = useCallback(
     async (id: string) => {
+      selectedRoom.current = id;
       const r = await api<RoomSnapshot>("rooms/" + id);
+      if (selectedRoom.current !== id) return;
       apply(r);
       setInvite(sessionStorage.getItem("plotrush-invite:" + id) ?? "");
       window.history.replaceState(null, "", "/rooms?room=" + id);
@@ -59,17 +62,18 @@ export function GroupRoom({
     });
   }, [load]);
   useEffect(() => {
-    if (!room || ["revealed", "expired", "cancelled"].includes(room.phase))
-      return;
+    if (!room || ["revealed", "cancelled"].includes(room.phase)) return;
     let cancelled = false,
       inFlight = false,
-      lastBeat = 0;
+      lastBeat = 0,
+      liveStream = false;
     const poll = async () => {
       if (inFlight || document.visibilityState === "hidden") return;
       inFlight = true;
       try {
         const current = latest.current!;
         const beat = Date.now() - lastBeat > 20000;
+        if (liveStream && !beat) return;
         const next = beat
           ? await api<RoomSnapshot>(
               "rooms/" + current.id + "/heartbeat",
@@ -90,23 +94,55 @@ export function GroupRoom({
         inFlight = false;
       }
     };
+    const stream = new EventSource(
+      `/api/v1/rooms/${room.id}/events?after=${room.stateVersion}`,
+    );
+    stream.onopen = () => {
+      liveStream = true;
+    };
+    stream.onerror = () => {
+      liveStream = false;
+    };
+    stream.addEventListener("closed", () => {
+      liveStream = false;
+      stream.close();
+    });
+    stream.addEventListener("room_changed", () => {
+      if (!cancelled && document.visibilityState !== "hidden")
+        void api<RoomSnapshot>("rooms/" + room.id)
+          .then(apply)
+          .catch(() => {
+            liveStream = false;
+          });
+    });
     void poll();
     const timer = setInterval(poll, 3000);
     return () => {
       cancelled = true;
       clearInterval(timer);
+      stream.close();
     };
   }, [room?.id, room?.phase, apply]); // eslint-disable-line react-hooks/exhaustive-deps
   async function enter(join: boolean) {
     setBusy(true);
     setError("");
     try {
+      const fingerprint = JSON.stringify({ join, caseId, name, code });
+      if (pendingEntry.current?.body !== fingerprint)
+        pendingEntry.current = { body: fingerprint, key: crypto.randomUUID() };
+      const key = pendingEntry.current.key;
       if (join) {
-        const r = await api<RoomSnapshot>("rooms/join", "POST", {
-          code,
-          displayName: name,
-        });
+        const r = await api<RoomSnapshot>(
+          "rooms/join",
+          "POST",
+          {
+            code,
+            displayName: name,
+          },
+          key,
+        );
         setInvite("");
+        selectedRoom.current = r.id;
         apply(r);
         window.history.replaceState(null, "", "/rooms?room=" + r.id);
       } else {
@@ -114,12 +150,15 @@ export function GroupRoom({
           "rooms",
           "POST",
           { caseId, displayName: name },
+          key,
         );
         setInvite(r.inviteCode);
         sessionStorage.setItem("plotrush-invite:" + r.room.id, r.inviteCode);
+        selectedRoom.current = r.room.id;
         apply(r.room);
         window.history.replaceState(null, "", "/rooms?room=" + r.room.id);
       }
+      pendingEntry.current = null;
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unable to enter room.");
     } finally {
@@ -154,6 +193,8 @@ export function GroupRoom({
       }
       apply(r);
       if (action === "leave") {
+        selectedRoom.current = null;
+        latest.current = null;
         setRoom(null);
         setInvite("");
         window.history.replaceState(
@@ -588,9 +629,78 @@ export function GroupRoom({
                   </a>
                 </section>
               )}
+              <section className="room-panel">
+                <h2>My private room notes</h2>
+                <PrivateNotes
+                  key={room.id}
+                  endpoint={`rooms/${room.id}/notes`}
+                  label="Private room notes"
+                  readOnly={["revealed", "expired", "cancelled"].includes(
+                    room.phase,
+                  )}
+                />
+                <p>
+                  <a
+                    className="text-link"
+                    href={`/api/v1/rooms/${room.id}/transcript`}
+                    download
+                  >
+                    Download accessible room transcript
+                  </a>
+                </p>
+              </section>
               {(room.phase === "expired" || room.phase === "cancelled") && (
                 <section className="room-panel">
                   <h2>This room has ended.</h2>
+                  {room.isOwner && (
+                    <div className="room-actions">
+                      {room.canResume && (
+                        <button
+                          className="button lime"
+                          disabled={busy}
+                          onClick={() => void act("resume")}
+                        >
+                          Resume with returning players
+                        </button>
+                      )}
+                      <button
+                        className="button dark"
+                        disabled={busy}
+                        onClick={async () => {
+                          setBusy(true);
+                          try {
+                            const r = await api<{
+                              room: RoomSnapshot;
+                              inviteCode: string;
+                            }>(`rooms/${room.id}/rehost`, "POST", {});
+                            selectedRoom.current = r.room.id;
+                            apply(r.room);
+                            setInvite(r.inviteCode);
+                            sessionStorage.setItem(
+                              "plotrush-invite:" + r.room.id,
+                              r.inviteCode,
+                            );
+                            window.history.replaceState(
+                              null,
+                              "",
+                              "/rooms?room=" + r.room.id,
+                            );
+                          } catch (e) {
+                            setError((e as Error).message);
+                          } finally {
+                            setBusy(false);
+                          }
+                        }}
+                      >
+                        Rehost without another purchase
+                      </button>
+                    </div>
+                  )}
+                  <p>
+                    Only the original host can recover this room. Resume needs
+                    two present returning players; rehost rechecks case
+                    availability and the host’s access.
+                  </p>
                   <p>
                     {room.access === "paid" ? (
                       <Link href="/library">

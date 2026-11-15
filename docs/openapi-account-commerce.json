@@ -3129,6 +3129,771 @@
         "x-staff-role": "content_publisher"
       }
     },
+    "/solo/attempts": {
+      "post": {
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "caseId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  }
+                },
+                "required": [
+                  "caseId"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response in the data/meta envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {},
+                    "meta": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid fields or expired code"
+          },
+          "401": {
+            "description": "Session required"
+          },
+          "403": {
+            "description": "Origin, owner or verified identity required"
+          },
+          "409": {
+            "description": "Merge confirmation, stale state or idempotency conflict"
+          },
+          "503": {
+            "description": "Provider not configured or development operation disabled"
+          }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "description": "Start/resume one active frozen case version. Seven-day database expiry, optional 24-hour actor-scoped request receipt. A replay does not replace a completed result or daily credit."
+      }
+    },
+    "/solo/attempts/{id}/notes": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "get": {
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response in the data/meta envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$schema": "https://json-schema.org/draft/2020-12/schema",
+                      "type": "object",
+                      "properties": {
+                        "notes": {
+                          "type": "string"
+                        },
+                        "notesVersion": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "readOnly": {
+                          "type": "boolean"
+                        },
+                        "archivedNotes": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "notes": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "notes"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "notes",
+                        "notesVersion",
+                        "readOnly"
+                      ]
+                    },
+                    "meta": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "text": {
+                        "type": "string",
+                        "maxLength": 2000
+                      },
+                      "expectedNotesVersion": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      }
+                    },
+                    "required": [
+                      "text",
+                      "expectedNotesVersion"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "text": {
+                        "type": "string",
+                        "maxLength": 2000
+                      },
+                      "expectedVersion": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      }
+                    },
+                    "required": [
+                      "text",
+                      "expectedVersion"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response in the data/meta envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {},
+                    "meta": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid fields or expired code"
+          },
+          "401": {
+            "description": "Session required"
+          },
+          "403": {
+            "description": "Origin, owner or verified identity required"
+          },
+          "409": {
+            "description": "Merge confirmation, stale state or idempotency conflict"
+          },
+          "503": {
+            "description": "Provider not configured or development operation disabled"
+          }
+        },
+        "description": "Private autosaved notes; expectedNotesVersion fences independent note edits. Legacy expectedVersion writes remain supported. Maximum2000 characters."
+      }
+    },
+    "/solo/attempts/{id}/abandon": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "post": {
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "expectedVersion": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "expectedVersion"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response in the data/meta envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {},
+                    "meta": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid fields or expired code"
+          },
+          "401": {
+            "description": "Session required"
+          },
+          "403": {
+            "description": "Origin, owner or verified identity required"
+          },
+          "409": {
+            "description": "Merge confirmation, stale state or idempotency conflict"
+          },
+          "503": {
+            "description": "Provider not configured or development operation disabled"
+          }
+        },
+        "description": "Explicitly end the owned attempt while preserving notes and unlocked evidence; ranked daily reservation remains."
+      }
+    },
+    "/solo/attempts/{id}/transcript": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "get": {
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Private uncached accessible text attachment of owned unlocked content/notes and revealed result only; no unreleased clues or unrevealed solution."
+          }
+        }
+      }
+    },
+    "/rooms/{id}/notes": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "get": {
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response in the data/meta envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$schema": "https://json-schema.org/draft/2020-12/schema",
+                      "type": "object",
+                      "properties": {
+                        "notes": {
+                          "type": "string"
+                        },
+                        "notesVersion": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "readOnly": {
+                          "type": "boolean"
+                        },
+                        "archivedNotes": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "notes": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "notes"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "notes",
+                        "notesVersion",
+                        "readOnly"
+                      ]
+                    },
+                    "meta": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "text": {
+                    "type": "string",
+                    "maxLength": 2000
+                  },
+                  "expectedNotesVersion": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "text",
+                  "expectedNotesVersion"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response in the data/meta envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$schema": "https://json-schema.org/draft/2020-12/schema",
+                      "type": "object",
+                      "properties": {
+                        "notes": {
+                          "type": "string"
+                        },
+                        "notesVersion": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "readOnly": {
+                          "type": "boolean"
+                        },
+                        "archivedNotes": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "notes": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "notes"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "notes",
+                        "notesVersion",
+                        "readOnly"
+                      ]
+                    },
+                    "meta": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid fields or expired code"
+          },
+          "401": {
+            "description": "Session required"
+          },
+          "403": {
+            "description": "Origin, owner or verified identity required"
+          },
+          "409": {
+            "description": "Merge confirmation, stale state or idempotency conflict"
+          },
+          "503": {
+            "description": "Provider not configured or development operation disabled"
+          }
+        }
+      }
+    },
+    "/rooms/{id}/resume": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "post": {
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "expectedVersion": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "expectedVersion"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response in the data/meta envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {},
+                    "meta": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid fields or expired code"
+          },
+          "401": {
+            "description": "Session required"
+          },
+          "403": {
+            "description": "Origin, owner or verified identity required"
+          },
+          "409": {
+            "description": "Merge confirmation, stale state or idempotency conflict"
+          },
+          "503": {
+            "description": "Provider not configured or development operation disabled"
+          }
+        },
+        "description": "Original host only, expired recoverable room, two present returning members, paid ownership rechecked. Preserves frozen case, evidence, votes and assignments."
+      }
+    },
+    "/rooms/{id}/rehost": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "post": {
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {},
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response in the data/meta envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {},
+                    "meta": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid fields or expired code"
+          },
+          "401": {
+            "description": "Session required"
+          },
+          "403": {
+            "description": "Origin, owner or verified identity required"
+          },
+          "409": {
+            "description": "Merge confirmation, stale state or idempotency conflict"
+          },
+          "503": {
+            "description": "Provider not configured or development operation disabled"
+          }
+        },
+        "description": "Original host only for expired/cancelled rooms. Creates at most one linked replacement per interrupted room, rechecks current case/access, never charges guests or initiates payment."
+      }
+    },
+    "/rooms/{id}/transcript": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "get": {
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Owned membership-scoped accessible text attachment: own unlocked clues, shared evidence, own notes and revealed result; no other player's private clues/notes/votes."
+          }
+        }
+      }
+    },
+    "/rooms/{id}/events": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "get": {
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "description": "Authenticated SSE invalidations backed by the private durable room outbox. Data contains room revision only. Membership/session rechecked each second; connections bounded30 seconds and resumed from Last-Event-ID. Client refetches safe snapshot; polling fallback and separate heartbeats remain.",
+        "responses": {
+          "200": {
+            "description": "text/event-stream with room_changed revision IDs and closed on access revocation"
+          },
+          "401": {
+            "description": "Session required"
+          },
+          "404": {
+            "description": "Membership required"
+          }
+        }
+      }
+    },
     "/me/interest-prompt": {
       "get": {
         "responses": {

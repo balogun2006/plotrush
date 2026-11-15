@@ -20,6 +20,7 @@ export async function migrate(db: Database) {
       "012_theme_registry.sql",
       "013_discovery_completion.sql",
       "014_account_privacy.sql",
+      "015_gameplay_completion.sql",
     ])
       await tx.query(await readFile("db/migrations/" + file, "utf8"));
   });

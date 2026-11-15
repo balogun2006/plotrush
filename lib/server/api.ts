@@ -14,7 +14,15 @@ import {
   uuidInterests,
   saveUuidInterests,
 } from "../domain/identity";
-import { catalogue, start, read, mutate, library } from "../domain/game";
+import {
+  catalogue,
+  start,
+  read,
+  mutate,
+  library,
+  soloTranscript,
+} from "../domain/game";
+import { notesWriteInput, soloNotesInput } from "../contracts/gameplay";
 import { requestRefund } from "../domain/refunds";
 import { refundRequestInput } from "../contracts/refunds";
 import { recommendations } from "../domain/recommendations";
@@ -46,6 +54,9 @@ import {
   roomLibrary,
   displayName,
   inviteCode,
+  rehostRoom,
+  privateRoomNotes,
+  roomTranscript,
 } from "../domain/rooms";
 import { account, requestCode, verifyCode, signOut } from "../domain/accounts";
 import {
@@ -186,6 +197,9 @@ export async function handle(req: NextRequest, path: string[]) {
     let actor = await identity(db, req.cookies.get(cookie)?.value);
     const route = path.join("/");
     const premium = premiumPolicy();
+    const requestKey = req.headers.has("idempotency-key")
+      ? z.uuid().parse(req.headers.get("idempotency-key"))
+      : undefined;
     if (req.method === "GET" && route === "auth/config")
       return json(emailConfig());
     if (req.method === "GET" && route === "me/interest-prompt") {
@@ -595,7 +609,14 @@ export async function handle(req: NextRequest, path: string[]) {
         .parse(await body(req));
       await limit(db, "create-room:" + actor, 5, 3600);
       return json(
-        await createRoom(db, actor, b.caseId, b.displayName, premium),
+        await createRoom(
+          db,
+          actor,
+          b.caseId,
+          b.displayName,
+          premium,
+          requestKey,
+        ),
         201,
       );
     }
@@ -605,10 +626,40 @@ export async function handle(req: NextRequest, path: string[]) {
         .strict()
         .parse(await body(req));
       await limit(db, "join-room:" + actor, 10, 60);
-      return json(await joinRoom(db, actor, b.code, b.displayName));
+      return json(await joinRoom(db, actor, b.code, b.displayName, requestKey));
     }
     if (path[0] === "rooms" && path[1]) {
       const id = z.uuid().parse(path[1]);
+      if (path.length === 3 && path[2] === "rehost" && req.method === "POST") {
+        z.object({})
+          .strict()
+          .parse(await body(req));
+        return json(await rehostRoom(db, actor, id, premium, requestKey), 201);
+      }
+      if (path.length === 3 && path[2] === "notes") {
+        if (req.method === "GET")
+          return json(await privateRoomNotes(db, actor, id));
+        if (req.method === "PUT")
+          return json(
+            await privateRoomNotes(
+              db,
+              actor,
+              id,
+              notesWriteInput.parse(await body(req)),
+              requestKey,
+            ),
+          );
+      }
+      if (path.length === 3 && path[2] === "transcript" && req.method === "GET")
+        return new NextResponse(await roomTranscript(db, actor, id), {
+          headers: {
+            "Content-Type": "text/plain; charset=utf-8",
+            "Content-Disposition":
+              'attachment; filename="plotrush-group-transcript.txt"',
+            "Cache-Control": "private, no-store",
+            "X-Content-Type-Options": "nosniff",
+          },
+        });
       if (req.method === "GET" && path.length === 2)
         return json(await roomAction(db, actor, id));
       if (req.method === "POST" && path.length === 3) {
@@ -621,6 +672,7 @@ export async function handle(req: NextRequest, path: string[]) {
             "vote",
             "heartbeat",
             "leave",
+            "resume",
           ])
           .parse(path[2]);
         const schema =
@@ -646,13 +698,14 @@ export async function handle(req: NextRequest, path: string[]) {
             action,
             schema.strict().parse(await body(req)),
             premium,
+            requestKey,
           ),
         );
       }
     }
     if (req.method === "POST" && route === "daily/start") {
       const b = dailyStartInput.parse(await body(req));
-      const attempt = await start(db, actor, b);
+      const attempt = await start(db, actor, b, undefined, requestKey);
       return json({ id: attempt.id }, 201);
     }
     if (req.method === "POST" && route === "solo/attempts") {
@@ -660,7 +713,7 @@ export async function handle(req: NextRequest, path: string[]) {
         .object({ caseId: z.string().min(1).max(80) })
         .strict()
         .parse(await body(req));
-      return json(await start(db, actor, b.caseId, premium), 201);
+      return json(await start(db, actor, b.caseId, premium, requestKey), 201);
     }
     if (req.method === "PUT" && route === "me/interests")
       return json(
@@ -698,6 +751,24 @@ export async function handle(req: NextRequest, path: string[]) {
       const id = z.uuid().parse(path[2]);
       if (req.method === "GET" && path.length === 3)
         return json(await read(db, actor, id));
+      if (req.method === "GET" && path[3] === "notes" && path.length === 4) {
+        const a = await read(db, actor, id);
+        return json({
+          notes: a.notes,
+          notesVersion: a.notesVersion,
+          readOnly: a.readOnly,
+        });
+      }
+      if (req.method === "GET" && path[3] === "transcript" && path.length === 4)
+        return new NextResponse(await soloTranscript(db, actor, id), {
+          headers: {
+            "Content-Type": "text/plain; charset=utf-8",
+            "Content-Disposition":
+              'attachment; filename="plotrush-solo-transcript.txt"',
+            "Cache-Control": "private, no-store",
+            "X-Content-Type-Options": "nosniff",
+          },
+        });
       if (req.method === "GET" && path[3] === "result" && path.length === 4) {
         const a = await read(db, actor, id);
         assert(
@@ -712,7 +783,7 @@ export async function handle(req: NextRequest, path: string[]) {
       assert(path.length === 4, 404, "NOT_FOUND", "Page not found.");
       if (
         (req.method === "POST" &&
-          ["advance", "hints", "accusation"].includes(action)) ||
+          ["advance", "hints", "accusation", "abandon"].includes(action)) ||
         (req.method === "PUT" && action === "notes")
       ) {
         const schema =
@@ -724,7 +795,12 @@ export async function handle(req: NextRequest, path: string[]) {
               })
             : action === "notes"
               ? z.object({
-                  expectedVersion: version,
+                  expectedVersion: version.optional(),
+                  expectedNotesVersion: z
+                    .number()
+                    .int()
+                    .nonnegative()
+                    .optional(),
                   text: z.string().max(2000),
                 })
               : action === "hints"
@@ -739,7 +815,12 @@ export async function handle(req: NextRequest, path: string[]) {
             actor,
             id,
             action,
-            schema.strict().parse(await body(req)),
+            (action === "notes"
+              ? soloNotesInput.parse(await body(req))
+              : schema.strict().parse(await body(req))) as Parameters<
+              typeof mutate
+            >[4],
+            requestKey,
           ),
         );
       }
