@@ -326,3 +326,12 @@ Accounts, durable groups, sandbox commerce, editorial tools, daily selection and
 - All 26 desktop/mobile Chromium scenarios passed in 3.0 minutes against the compiled application and disposable database, including protected theme creation/rename/308/410, mood creation/retirement, multi-select/pagination/history, mobile Apply/Cancel/Escape/focus, UUID preference writes and existing account/solo/group/commerce regressions. A final focused rerun covers the last checkbox-history and facet-label refinements before release.
 
 - The final rebuilt application passed all six focused desktop/mobile discovery scenarios in 31.7 seconds, including restored checkbox state after Back and UUID session writes. No hosted verification is claimed before the staging release below.
+
+
+### Verified discovery-completion staging release — 15 November 2026
+
+- [PR #18](https://github.com/balogun2006/plotrush/pull/18) merged at `dbc074be0a447bfd5b4a993c9a51ba801854417d`. Its tree matches tested branch `f60191244134026308f90db367fa8a6af6a3d672` exactly. Local main was fast-forwarded.
+- GitHub checks passed for the [branch push](https://github.com/balogun2006/plotrush/actions/runs/43652286939), [PR](https://github.com/balogun2006/plotrush/actions/runs/43652313259) and [merged source](https://github.com/balogun2006/plotrush/actions/runs/43652682012).
+- Railway web deployment `97a41bd1-4378-45bb-8c4c-07656e2786ab` reached SUCCESS on staging. Logs confirmed the migration/import completed before startup. Health returned `status:ok, mode:draft-preview`. The sole staged change was the web source pin; existing provider settings, release flags and worker were unchanged.
+- All 16 hosted desktop/mobile Chromium scenarios passed in 1.6 minutes: multi-select filters/chips, cursor URLs and Back/refresh, mobile Apply/Cancel/Escape/focus, theme-mode preservation/empty/unknown states, UUID preference ownership/revisions/Origin denial, full free solo completion and replay separation. Additional API checks confirmed exact four-case pagination with distinct pages, stable catalogue revision and three persisted moods. Staff creation/rename/retirement tests remain local/CI evidence; no real taxonomy edits or content approvals were made on staging.
+- This evidence-only documentation update leaves the application source pinned to the merged release. Remaining work is outside the six area1 items, including account privacy/onboarding, paid-market availability, ads/analytics, approved launch content and broader production recovery.
